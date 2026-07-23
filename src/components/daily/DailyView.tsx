@@ -8,8 +8,8 @@ import Events from './Events'
 import Routines from './Routines'
 import DailyNotes from './DailyNotes'
 
-export default function DailyView() {
-  const [date, setDate] = useState(todayStr)
+export default function DailyView({ initialDate }: { initialDate?: string }) {
+  const [date, setDate] = useState(() => initialDate ?? todayStr())
   const fmt = formatDate(date)
   const isToday = date === todayStr()
 

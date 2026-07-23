@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { getWeeklyGoal, upsertWeeklyGoal, getRoutines, getRoutineLogs, toggleRoutineLog, getWeeklyWins, getTasks } from '@/lib/db'
 import { getWeekStart, getWeekDates, addDays, formatDate, formatWeekRange, getWeekNumber, todayStr, isRoutineActiveOnDate } from '@/lib/utils'
 import type { WeeklyGoal, WeeklyWin, Routine, RoutineLog, Task } from '@/lib/types'
@@ -10,6 +11,7 @@ import WeeklyGoals from './WeeklyGoals'
 import WeeklyTasks from './WeeklyTasks'
 
 export default function WeeklyView() {
+  const router = useRouter()
   const [weekStart, setWeekStart] = useState(() => getWeekStart(todayStr()))
   const [goal, setGoal] = useState<WeeklyGoal | null>(null)
   const [editingGoal, setEditingGoal] = useState(false)
@@ -118,10 +120,11 @@ export default function WeeklyView() {
               const done = tasks.filter(t => t.completed).length
 
               return (
-                <div key={date} className="card" style={{
+                <div key={date} className="card" onClick={() => router.push(`/daily?date=${date}`)} style={{
                   padding: 14, minHeight: 240, display: 'flex', flexDirection: 'column',
                   borderColor: isToday ? 'var(--gold-dim)' : 'var(--border)',
                   background: isToday ? 'var(--gold-glow)' : 'var(--surface)',
+                  cursor: 'pointer',
                 }}>
                   <div style={{ paddingBottom: 10, borderBottom: '1px solid var(--border)', marginBottom: 10 }}>
                     <div style={{ fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: isToday ? 'var(--gold)' : 'var(--text-dim)' }}>
