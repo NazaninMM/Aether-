@@ -76,6 +76,11 @@ export async function addRoutine(name: string, days: number[] | null, color: str
   if (result.error) console.error('[addRoutine]', result.error.message)
   return result
 }
+export async function updateRoutine(id: string, fields: Partial<Omit<Routine, 'id' | 'sort_order'>>) {
+  const result = await supabase.from('routines').update(fields).eq('id', id)
+  if (result.error) console.error('[updateRoutine]', result.error.message)
+  return result
+}
 export async function deleteRoutine(id: string) {
   return supabase.from('routines').delete().eq('id', id)
 }

@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { getRoutines, getRoutineLogs, toggleRoutineLog, addRoutine, deleteRoutine } from '@/lib/db'
+import { useState, useEffect, useRef } from 'react'
+import { getRoutines, getRoutineLogs, toggleRoutineLog, addRoutine, updateRoutine, deleteRoutine } from '@/lib/db'
 import { isRoutineActiveOnDate, computeStreak, addDays } from '@/lib/utils'
 import type { Routine, RoutineLog } from '@/lib/types'
 import { ROUTINE_PALETTE } from '@/lib/constants'
@@ -10,6 +10,14 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 function buildStreakDates(date: string, n = 30): string[] {
   return Array.from({ length: n }, (_, i) => addDays(date, -i))
+}
+
+function nextRoutineColor(routines: Routine[]): string {
+  const counts = new Map(ROUTINE_PALETTE.map(c => [c, 0]))
+  for (const r of routines) {
+    if (r.color && counts.has(r.color)) counts.set(r.color, counts.get(r.color)! + 1)
+  }
+  return ROUTINE_PALETTE.reduce((least, c) => (counts.get(c)! < counts.get(least)! ? c : least))
 }
 
 export default function Routines({ date }: { date: string }) {
@@ -45,7 +53,7 @@ export default function Routines({ date }: { date: string }) {
   async function handleAdd() {
     const n = name.trim()
     if (!n) { setAdding(false); return }
-    const color = ROUTINE_PALETTE[routines.length % ROUTINE_PALETTE.length]
+    const color = nextRoutineColor(routines)
     const { error } = await addRoutine(n, allDays ? null : selectedDays, color)
     if (error) return
     await getRoutines().then(setRoutines)
@@ -55,6 +63,11 @@ export default function Routines({ date }: { date: string }) {
   async function handleDelete(id: string) {
     await deleteRoutine(id)
     setRoutines(rs => rs.filter(r => r.id !== id))
+  }
+
+  function handleRename(routine: Routine, name: string) {
+    setRoutines(rs => rs.map(r => r.id === routine.id ? { ...r, name } : r))
+    updateRoutine(routine.id, { name })
   }
 
   const activeRoutines = routines.filter(r => isRoutineActiveOnDate(r.days, date))
@@ -84,9 +97,7 @@ export default function Routines({ date }: { date: string }) {
               {done && <span style={{ color: 'white', fontSize: 9, lineHeight: 1 }}>✓</span>}
             </button>
             <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: routine.color ?? 'var(--border)' }} />
-            <span style={{ flex: 1, fontSize: 13, color: done ? 'var(--text-dim)' : 'var(--text)', textDecoration: done ? 'line-through' : 'none' }}>
-              {routine.name}
-            </span>
+            <RoutineName routine={routine} done={done} onSave={n => handleRename(routine, n)} />
             {routine.days && (
               <span style={{ fontSize: 9, color: 'var(--text-dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '1px 6px' }}>
                 {routine.days.map(d => DAY_NAMES[d]).join('/')}
@@ -131,5 +142,45 @@ export default function Routines({ date }: { date: string }) {
         <button className="add-btn" onClick={() => setAdding(true)}>+ add routine</button>
       )}
     </div>
+  )
+}
+
+function RoutineName({ routine, done, onSave }: { routine: Routine; done: boolean; onSave: (name: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(routine.name)
+  const ref = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { setName(routine.name) }, [routine.name])
+  useEffect(() => { if (editing) ref.current?.focus() }, [editing])
+
+  function save() {
+    setEditing(false)
+    const n = name.trim() || routine.name
+    if (n !== routine.name) onSave(n)
+    else setName(routine.name)
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={ref}
+        value={name}
+        onChange={e => setName(e.target.value)}
+        onBlur={save}
+        onKeyDown={e => {
+          if (e.key === 'Enter') save()
+          if (e.key === 'Escape') { setName(routine.name); setEditing(false) }
+        }}
+        style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit' }}
+      />
+    )
+  }
+  return (
+    <span
+      onClick={() => setEditing(true)}
+      style={{ flex: 1, fontSize: 13, cursor: 'text', color: done ? 'var(--text-dim)' : 'var(--text)', textDecoration: done ? 'line-through' : 'none' }}
+    >
+      {routine.name}
+    </span>
   )
 }
