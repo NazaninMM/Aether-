@@ -1,15 +1,18 @@
 'use client'
 import { useState } from 'react'
 import { addDays, formatDate, todayStr } from '@/lib/utils'
+import type { Task } from '@/lib/types'
 import GoalOfDay from './GoalOfDay'
 import TimeBlocks from './TimeBlocks'
 import Tasks from './Tasks'
 import Events from './Events'
 import Routines from './Routines'
 import DailyNotes from './DailyNotes'
+import DailyCharts from './DailyCharts'
 
 export default function DailyView({ initialDate }: { initialDate?: string }) {
   const [date, setDate] = useState(() => initialDate ?? todayStr())
+  const [tasks, setTasks] = useState<Task[]>([])
   const fmt = formatDate(date)
   const isToday = date === todayStr()
 
@@ -37,6 +40,11 @@ export default function DailyView({ initialDate }: { initialDate?: string }) {
 
       </div>
 
+      {/* PROGRESS CHART */}
+      <div style={{ marginBottom: 16 }}>
+        <DailyCharts tasks={tasks} />
+      </div>
+
       {/* BODY */}
       <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16 }}>
 
@@ -50,7 +58,7 @@ export default function DailyView({ initialDate }: { initialDate?: string }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <TimeBlocks date={date} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <Tasks date={date} />
+            <Tasks date={date} onTasksChange={setTasks} />
             <Events date={date} />
           </div>
         </div>

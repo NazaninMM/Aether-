@@ -13,12 +13,13 @@ import type { MonthlyGoal, DailyNote, Routine, RoutineLog } from '@/lib/types'
 import MonthCalendar from './MonthCalendar'
 import MonthlyTasks from './MonthlyTasks'
 import HabitHeatmap from './HabitHeatmap'
+import MonthlyCharts from './MonthlyCharts'
 
-type CalTask = { id: string; date: string; title: string; completed: boolean }
+type CalTask = { id: string; date: string; title: string; completed: boolean; category?: string | null }
 
-export default function MonthlyView() {
+export default function MonthlyView({ initialMonth }: { initialMonth?: string }) {
   const today = todayStr()
-  const [monthStart, setMonthStart] = useState(() => getMonthStart(today))
+  const [monthStart, setMonthStart] = useState(() => initialMonth ? getMonthStart(initialMonth) : getMonthStart(today))
   const [goal, setGoal] = useState<MonthlyGoal | null>(null)
   const [editingGoal, setEditingGoal] = useState(false)
   const [tasksByDate, setTasksByDate] = useState<Record<string, CalTask[]>>({})
@@ -139,6 +140,17 @@ export default function MonthlyView() {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* CHARTS */}
+      <div style={{ marginBottom: 16 }}>
+        <MonthlyCharts
+          monthStart={monthStart}
+          monthDates={monthDates}
+          tasksByDate={tasksByDate}
+          routines={routines}
+          routineLogs={routineLogs}
+        />
       </div>
 
       {/* CALENDAR */}

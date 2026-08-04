@@ -71,8 +71,8 @@ export async function getRoutines(): Promise<Routine[]> {
   const { data } = await supabase.from('routines').select('*').order('sort_order').order('created_at')
   return data ?? []
 }
-export async function addRoutine(name: string, days: number[] | null) {
-  return supabase.from('routines').insert({ name, days })
+export async function addRoutine(name: string, days: number[] | null, color: string) {
+  return supabase.from('routines').insert({ name, days, color })
 }
 export async function deleteRoutine(id: string) {
   return supabase.from('routines').delete().eq('id', id)
@@ -142,8 +142,8 @@ export async function deleteMonthlyTask(id: string) {
 }
 
 // ── Calendar range queries ─────────────────────────────
-export async function getTasksInRange(startDate: string, endDate: string): Promise<Pick<Task, 'id' | 'date' | 'title' | 'completed'>[]> {
-  const { data } = await supabase.from('tasks').select('id, date, title, completed').gte('date', startDate).lte('date', endDate)
+export async function getTasksInRange(startDate: string, endDate: string): Promise<Pick<Task, 'id' | 'date' | 'title' | 'completed' | 'category'>[]> {
+  const { data } = await supabase.from('tasks').select('id, date, title, completed, category').gte('date', startDate).lte('date', endDate)
   return data ?? []
 }
 export async function getDailyNotesInRange(startDate: string, endDate: string): Promise<DailyNote[]> {

@@ -54,6 +54,7 @@ export default function RoutineTracker({ routines, logs, dates, onToggle }: Prop
           {routines.map(routine => (
             <Fragment key={routine.id}>
               <div key={`name-${routine.id}`} style={{ fontSize: 12, color: 'var(--text-mid)', paddingRight: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: routine.color ?? 'var(--border)' }} />
                 {routine.name}
                 {routine.days && (
                   <span style={{ fontSize: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '1px 5px', color: 'var(--text-dim)', flexShrink: 0 }}>

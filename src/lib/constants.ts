@@ -26,6 +26,15 @@ export const CATEGORY_COLOR: Record<CategoryKey, string> = {
   home:     '#e85079',  // rose
 }
 
+export const ROUTINE_PALETTE = [
+  '#3db870', // emerald
+  '#5b8ce8', // steel blue
+  '#9b60e8', // violet
+  '#e8833a', // warm orange
+  '#e85079', // rose
+  '#e8c040', // yellow
+]
+
 export const CATEGORIES: { key: CategoryKey; label: string; color: string }[] = [
   { key: 'work',     label: 'Work',     color: CATEGORY_COLOR.work },
   { key: 'study',    label: 'Study',    color: CATEGORY_COLOR.study },

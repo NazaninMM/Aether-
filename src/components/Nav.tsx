@@ -11,7 +11,7 @@ export default function Nav() {
     { label: 'Daily',  href: '/daily' },
     { label: 'Weekly', href: '/weekly' },
     { label: 'Monthly', href: '/monthly' },
-    { label: 'Yearly',  href: '#', disabled: true },
+    { label: 'Yearly',  href: '/yearly' },
     { label: 'Life Goals', href: '#', disabled: true },
   ]
 

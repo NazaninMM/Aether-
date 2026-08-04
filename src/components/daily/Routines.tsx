@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { getRoutines, getRoutineLogs, toggleRoutineLog, addRoutine, deleteRoutine } from '@/lib/db'
 import { isRoutineActiveOnDate, computeStreak, addDays } from '@/lib/utils'
 import type { Routine, RoutineLog } from '@/lib/types'
+import { ROUTINE_PALETTE } from '@/lib/constants'
 import FlameIcon from '../FlameIcon'
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -44,7 +45,8 @@ export default function Routines({ date }: { date: string }) {
   async function handleAdd() {
     const n = name.trim()
     if (!n) { setAdding(false); return }
-    await addRoutine(n, allDays ? null : selectedDays)
+    const color = ROUTINE_PALETTE[routines.length % ROUTINE_PALETTE.length]
+    await addRoutine(n, allDays ? null : selectedDays, color)
     getRoutines().then(setRoutines)
     setName(''); setSelectedDays([]); setAllDays(true); setAdding(false)
   }
@@ -80,6 +82,7 @@ export default function Routines({ date }: { date: string }) {
             >
               {done && <span style={{ color: 'white', fontSize: 9, lineHeight: 1 }}>✓</span>}
             </button>
+            <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: routine.color ?? 'var(--border)' }} />
             <span style={{ flex: 1, fontSize: 13, color: done ? 'var(--text-dim)' : 'var(--text)', textDecoration: done ? 'line-through' : 'none' }}>
               {routine.name}
             </span>

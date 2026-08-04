@@ -238,20 +238,25 @@ function TaskRow({ task, onChange, onDelete }: {
   )
 }
 
-export default function Tasks({ date }: { date: string }) {
+export default function Tasks({ date, onTasksChange }: { date: string; onTasksChange?: (tasks: Task[]) => void }) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [input, setInput] = useState('')
   const [adding, setAdding] = useState(false)
   const [newCategory, setNewCategory] = useState<Category>(null)
 
-  useEffect(() => { getTasks(date).then(setTasks) }, [date])
+  function setAndNotify(ts: Task[]) {
+    setTasks(ts)
+    onTasksChange?.(ts)
+  }
+
+  useEffect(() => { getTasks(date).then(t => setAndNotify(t)) }, [date])
 
   async function handleAdd() {
     const title = input.trim()
     if (!title) { setAdding(false); return }
     const { data } = await addTask(date, title, newCategory ?? undefined) as any
-    if (data) setTasks(t => [...t, data])
-    else getTasks(date).then(setTasks)
+    if (data) setAndNotify([...tasks, data])
+    else getTasks(date).then(t => setAndNotify(t))
     setInput('')
     setNewCategory(null)
     setAdding(false)
@@ -259,7 +264,7 @@ export default function Tasks({ date }: { date: string }) {
 
   async function handleDelete(id: string) {
     await deleteTask(id)
-    setTasks(ts => ts.filter(t => t.id !== id))
+    setAndNotify(tasks.filter(t => t.id !== id))
   }
 
   const done = tasks.filter(t => t.completed).length
@@ -275,7 +280,7 @@ export default function Tasks({ date }: { date: string }) {
         <TaskRow
           key={task.id}
           task={task}
-          onChange={updated => setTasks(ts => ts.map(t => t.id === updated.id ? updated : t))}
+          onChange={updated => setAndNotify(tasks.map(t => t.id === updated.id ? updated : t))}
           onDelete={() => handleDelete(task.id)}
         />
       ))}

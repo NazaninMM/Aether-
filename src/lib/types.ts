@@ -58,6 +58,7 @@ export interface Routine {
   name: string
   days: number[] | null   // null = every day; [0..6] = specific weekdays (0=Sun)
   sort_order: number
+  color: string | null
 }
 
 export interface RoutineLog {

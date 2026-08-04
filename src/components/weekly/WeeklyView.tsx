@@ -9,10 +9,11 @@ import WeeklyWins from './WeeklyWins'
 import WeeklySidebar from './WeeklySidebar'
 import WeeklyGoals from './WeeklyGoals'
 import WeeklyTasks from './WeeklyTasks'
+import WeeklyCharts from './WeeklyCharts'
 
-export default function WeeklyView() {
+export default function WeeklyView({ initialWeek }: { initialWeek?: string }) {
   const router = useRouter()
-  const [weekStart, setWeekStart] = useState(() => getWeekStart(todayStr()))
+  const [weekStart, setWeekStart] = useState(() => initialWeek ? getWeekStart(initialWeek) : getWeekStart(todayStr()))
   const [goal, setGoal] = useState<WeeklyGoal | null>(null)
   const [editingGoal, setEditingGoal] = useState(false)
   const [wins, setWins] = useState<WeeklyWin[]>([])
@@ -108,7 +109,10 @@ export default function WeeklyView() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: 16, alignItems: 'start' }}>
+      {/* CHARTS */}
+      <WeeklyCharts weekStart={weekStart} dates={dates} dayTasks={dayTasks} routines={routines} logs={logs} />
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: 16, alignItems: 'start', marginTop: 16 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           {/* 7-DAY GRID */}
