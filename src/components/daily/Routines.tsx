@@ -46,8 +46,9 @@ export default function Routines({ date }: { date: string }) {
     const n = name.trim()
     if (!n) { setAdding(false); return }
     const color = ROUTINE_PALETTE[routines.length % ROUTINE_PALETTE.length]
-    await addRoutine(n, allDays ? null : selectedDays, color)
-    getRoutines().then(setRoutines)
+    const { error } = await addRoutine(n, allDays ? null : selectedDays, color)
+    if (error) return
+    await getRoutines().then(setRoutines)
     setName(''); setSelectedDays([]); setAllDays(true); setAdding(false)
   }
 

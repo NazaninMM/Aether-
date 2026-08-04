@@ -72,7 +72,9 @@ export async function getRoutines(): Promise<Routine[]> {
   return data ?? []
 }
 export async function addRoutine(name: string, days: number[] | null, color: string) {
-  return supabase.from('routines').insert({ name, days, color })
+  const result = await supabase.from('routines').insert({ name, days, color }).select().single()
+  if (result.error) console.error('[addRoutine]', result.error.message)
+  return result
 }
 export async function deleteRoutine(id: string) {
   return supabase.from('routines').delete().eq('id', id)
