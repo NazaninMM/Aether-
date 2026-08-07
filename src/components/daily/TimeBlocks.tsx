@@ -12,6 +12,15 @@ const PRIORITY_COLOR: Record<string, string> = {
   low: 'var(--green)', medium: 'var(--amber)', high: '#d4703a', urgent: '#c04040',
 }
 
+function sortByStartTime(list: TimeBlock[]) {
+  return [...list].sort((a, b) => {
+    if (!a.time_start && !b.time_start) return 0
+    if (!a.time_start) return 1
+    if (!b.time_start) return -1
+    return a.time_start.localeCompare(b.time_start)
+  })
+}
+
 function fmt24to12(t: string) {
   if (!t) return ''
   const [h, m] = t.split(':').map(Number)
@@ -135,6 +144,8 @@ function InlineText({ value, fontSize, color, placeholder, onSave, style }: {
 function TimeBlockRow({ block, onChange, onDelete }: {
   block: TimeBlock; onChange: (b: TimeBlock) => void; onDelete: () => void
 }) {
+  const [timeError, setTimeError] = useState<string | null>(null)
+
   function save(fields: Partial<TimeBlock>) {
     const updated = { ...block, ...fields }
     onChange(updated)
@@ -143,6 +154,15 @@ function TimeBlockRow({ block, onChange, onDelete }: {
 
   function saveField(field: 'time_start' | 'time_end' | 'estimated_time' | 'actual_time', value: string) {
     const val = value || null
+    if (field === 'time_start' || field === 'time_end') {
+      const start = field === 'time_start' ? val : block.time_start
+      const end = field === 'time_end' ? val : block.time_end
+      if (start && end && start >= end) {
+        setTimeError('Start time must be before end time')
+        return
+      }
+      setTimeError(null)
+    }
     onChange({ ...block, [field]: val })
     updateTimeBlock(block.id, { [field]: val })
   }
@@ -224,6 +244,9 @@ function TimeBlockRow({ block, onChange, onDelete }: {
           <span style={{ color: 'var(--border-light)', fontSize: 11, margin: '0 4px' }}>·</span>
           <TextField value={block.actual_time ?? ''} placeholder="took" icon="⏱" onChange={v => saveField('actual_time', v)} />
         </div>
+        {timeError && (
+          <div style={{ fontSize: 10, color: '#c04040', marginTop: 4 }}>{timeError}</div>
+        )}
       </div>
     </div>
   )
@@ -237,11 +260,17 @@ export default function TimeBlocks({ date }: { date: string }) {
   const [title, setTitle] = useState('')
   const [subtitle, setSubtitle] = useState('')
   const [isEvent, setIsEvent] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
 
   useEffect(() => { getTimeBlocks(date).then(setBlocks) }, [date])
 
   async function handleAdd() {
     if (!title.trim()) { setAdding(false); return }
+    if (timeStart && timeEnd && timeStart >= timeEnd) {
+      setAddError('Start time must be before end time')
+      return
+    }
+    setAddError(null)
     const { data } = await addTimeBlock(date, title.trim(), timeStart || undefined, timeEnd || undefined, subtitle.trim() || undefined, isEvent) as any
     if (data) setBlocks(bs => [...bs, data])
     else getTimeBlocks(date).then(setBlocks)
@@ -258,7 +287,7 @@ export default function TimeBlocks({ date }: { date: string }) {
       <div className="card-title">✦ Schedule — Time Blocks</div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-        {blocks.map(b => (
+        {sortByStartTime(blocks).map(b => (
           <TimeBlockRow
             key={b.id}
             block={b}
@@ -288,17 +317,20 @@ export default function TimeBlocks({ date }: { date: string }) {
             <input
               type="time"
               value={timeStart}
-              onChange={e => setTimeStart(e.target.value)}
+              onChange={e => { setTimeStart(e.target.value); setAddError(null) }}
               style={{ flex: 1, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', color: 'var(--text)', fontSize: 13, outline: 'none' }}
             />
             <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>→</span>
             <input
               type="time"
               value={timeEnd}
-              onChange={e => setTimeEnd(e.target.value)}
+              onChange={e => { setTimeEnd(e.target.value); setAddError(null) }}
               style={{ flex: 1, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', color: 'var(--text)', fontSize: 13, outline: 'none' }}
             />
           </div>
+          {addError && (
+            <div style={{ fontSize: 11, color: '#c04040' }}>{addError}</div>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-dim)', cursor: 'pointer' }}>
               <input type="checkbox" checked={isEvent} onChange={e => setIsEvent(e.target.checked)} />
