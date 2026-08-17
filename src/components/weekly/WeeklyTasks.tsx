@@ -3,20 +3,29 @@ import { useState, useEffect, useRef } from 'react'
 import { getWeeklyTasks, addWeeklyTask, updateWeeklyTask, deleteWeeklyTask } from '@/lib/db'
 import type { WeeklyTask } from '@/lib/types'
 import { CATEGORIES } from '@/lib/constants'
+import { addDays } from '@/lib/utils'
 
 type Category = WeeklyTask['category']
 
-function TaskRow({ task, onToggle, onRename, onDelete }: {
+function TaskRow({ task, onToggle, onRename, onDelete, onCopy }: {
   task: WeeklyTask
   onToggle: () => void
   onRename: (title: string) => void
   onDelete: () => void
+  onCopy: () => void
 }) {
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(task.title)
+  const [copied, setCopied] = useState(false)
   const ref = useRef<HTMLInputElement>(null)
   useEffect(() => { setTitle(task.title) }, [task.title])
   useEffect(() => { if (editing) ref.current?.focus() }, [editing])
+
+  function handleCopy() {
+    onCopy()
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1200)
+  }
 
   function save() {
     setEditing(false)
@@ -60,6 +69,14 @@ function TaskRow({ task, onToggle, onRename, onDelete }: {
           {task.title}
         </span>
       )}
+
+      <button
+        onClick={handleCopy}
+        title="Copy to next week"
+        style={{ background: 'none', border: 'none', color: copied ? 'var(--green)' : 'var(--text-dim)', cursor: 'pointer', fontSize: 12, padding: '0 2px', opacity: copied ? 1 : 0.35, transition: 'opacity 0.15s, color 0.15s', flexShrink: 0 }}
+        onMouseEnter={e => { if (!copied) e.currentTarget.style.opacity = '1' }}
+        onMouseLeave={e => { if (!copied) e.currentTarget.style.opacity = '0.35' }}
+      >{copied ? '✓' : '→'}</button>
 
       <button
         className="del-btn"
@@ -106,6 +123,7 @@ function CategoryColumn({ category, tasks, weekStart, onRefresh }: {
             onToggle={async () => { await updateWeeklyTask(task.id, { completed: !task.completed }); onRefresh() }}
             onRename={async title => { await updateWeeklyTask(task.id, { title }); onRefresh() }}
             onDelete={async () => { await deleteWeeklyTask(task.id); onRefresh() }}
+            onCopy={async () => { await addWeeklyTask(addDays(weekStart, 7), task.title, task.category) }}
           />
         ))}
       </div>

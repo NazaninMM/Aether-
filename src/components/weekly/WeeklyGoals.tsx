@@ -3,20 +3,29 @@ import { useState, useEffect, useRef } from 'react'
 import { getWeeklyGoalItems, addWeeklyGoalItem, updateWeeklyGoalItem, deleteWeeklyGoalItem } from '@/lib/db'
 import { CATEGORIES } from '@/lib/constants'
 import type { WeeklyGoalItem } from '@/lib/types'
+import { addDays } from '@/lib/utils'
 
 type Category = WeeklyGoalItem['category']
 
-function GoalRow({ goal, onToggle, onRename, onDelete }: {
+function GoalRow({ goal, onToggle, onRename, onDelete, onCopy }: {
   goal: WeeklyGoalItem
   onToggle: () => void
   onRename: (title: string) => void
   onDelete: () => void
+  onCopy: () => void
 }) {
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(goal.title)
+  const [copied, setCopied] = useState(false)
   const ref = useRef<HTMLInputElement>(null)
   useEffect(() => { setTitle(goal.title) }, [goal.title])
   useEffect(() => { if (editing) ref.current?.focus() }, [editing])
+
+  function handleCopy() {
+    onCopy()
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1200)
+  }
 
   function save() {
     setEditing(false)
@@ -60,6 +69,14 @@ function GoalRow({ goal, onToggle, onRename, onDelete }: {
           {goal.title}
         </span>
       )}
+
+      <button
+        onClick={handleCopy}
+        title="Copy to next week"
+        style={{ background: 'none', border: 'none', color: copied ? 'var(--green)' : 'var(--text-dim)', cursor: 'pointer', fontSize: 12, padding: '0 2px', opacity: copied ? 1 : 0.35, transition: 'opacity 0.15s, color 0.15s', flexShrink: 0 }}
+        onMouseEnter={e => { if (!copied) e.currentTarget.style.opacity = '1' }}
+        onMouseLeave={e => { if (!copied) e.currentTarget.style.opacity = '0.35' }}
+      >{copied ? '✓' : '→'}</button>
 
       <button
         className="del-btn"
@@ -106,6 +123,7 @@ function CategoryColumn({ category, goals, weekStart, onRefresh }: {
             onToggle={async () => { await updateWeeklyGoalItem(goal.id, { completed: !goal.completed }); onRefresh() }}
             onRename={async title => { await updateWeeklyGoalItem(goal.id, { title }); onRefresh() }}
             onDelete={async () => { await deleteWeeklyGoalItem(goal.id); onRefresh() }}
+            onCopy={async () => { await addWeeklyGoalItem(addDays(weekStart, 7), goal.title, goal.category) }}
           />
         ))}
       </div>

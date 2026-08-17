@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { getTasks, addTask, updateTask, deleteTask } from '@/lib/db'
 import type { Task } from '@/lib/types'
 import { PRIORITY_CYCLE, PRIORITY_COLOR, CATEGORY_KEYS, CATEGORY_COLOR } from '@/lib/constants'
+import { addDays } from '@/lib/utils'
 
 type Priority = Task['priority']
 type Category = Task['category']
@@ -88,13 +89,20 @@ function TextField({ value, placeholder, icon, onChange }: {
   )
 }
 
-function TaskRow({ task, onChange, onDelete }: {
-  task: Task; onChange: (t: Task) => void; onDelete: () => void
+function TaskRow({ task, onChange, onDelete, onCopy }: {
+  task: Task; onChange: (t: Task) => void; onDelete: () => void; onCopy: () => void
 }) {
   const [editingTitle, setEditingTitle] = useState(false)
   const [title, setTitle] = useState(task.title)
+  const [copied, setCopied] = useState(false)
   const titleRef = useRef<HTMLInputElement>(null)
   useEffect(() => { if (editingTitle) titleRef.current?.focus() }, [editingTitle])
+
+  function handleCopy() {
+    onCopy()
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1200)
+  }
 
   function saveTitle() {
     setEditingTitle(false)
@@ -212,6 +220,20 @@ function TaskRow({ task, onChange, onDelete }: {
         </button>
 
         <button
+          onClick={handleCopy}
+          title="Copy to tomorrow"
+          style={{
+            background: 'none', border: 'none', color: copied ? 'var(--green)' : 'var(--text-dim)',
+            cursor: 'pointer', fontSize: 13, padding: '0 2px', flexShrink: 0,
+            opacity: copied ? 1 : 0.35, transition: 'opacity 0.15s, color 0.15s',
+          }}
+          onMouseEnter={e => { if (!copied) e.currentTarget.style.opacity = '1' }}
+          onMouseLeave={e => { if (!copied) e.currentTarget.style.opacity = '0.35' }}
+        >
+          {copied ? '✓' : '→'}
+        </button>
+
+        <button
           onClick={onDelete}
           style={{
             background: 'none', border: 'none', color: 'var(--text-dim)',
@@ -267,6 +289,10 @@ export default function Tasks({ date, onTasksChange }: { date: string; onTasksCh
     setAndNotify(tasks.filter(t => t.id !== id))
   }
 
+  async function handleCopyToTomorrow(task: Task) {
+    await addTask(addDays(date, 1), task.title, task.category ?? undefined)
+  }
+
   const done = tasks.filter(t => t.completed).length
 
   return (
@@ -282,6 +308,7 @@ export default function Tasks({ date, onTasksChange }: { date: string; onTasksCh
           task={task}
           onChange={updated => setAndNotify(tasks.map(t => t.id === updated.id ? updated : t))}
           onDelete={() => handleDelete(task.id)}
+          onCopy={() => handleCopyToTomorrow(task)}
         />
       ))}
 
