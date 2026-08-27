@@ -1,6 +1,8 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { getEvents, addEvent, updateEvent, deleteEvent } from '@/lib/db'
+import { sortByStartTime } from '@/lib/utils'
+import { RepeatDayToggle, RepeatBadge } from './RepeatPicker'
 import type { Event } from '@/lib/types'
 
 function fmt24to12(t: string) {
@@ -59,9 +61,16 @@ function EventRow({ event, onChange, onDelete }: {
   event: Event; onChange: (e: Event) => void; onDelete: () => void
 }) {
   const [editingTitle, setEditingTitle] = useState(false)
+  const [editingRepeat, setEditingRepeat] = useState(false)
   const [title, setTitle] = useState(event.title)
   const titleRef = useRef<HTMLInputElement>(null)
   useEffect(() => { if (editingTitle) titleRef.current?.focus() }, [editingTitle])
+
+  function saveRepeatDays(days: number[]) {
+    const repeat_days = days.length ? days : null
+    onChange({ ...event, repeat_days })
+    updateEvent(event.id, { repeat_days })
+  }
 
   function saveTitle() {
     setEditingTitle(false)
@@ -119,7 +128,15 @@ function EventRow({ event, onChange, onDelete }: {
             ) : null
           })()}
         </div>
+        {editingRepeat && (
+          <div style={{ marginTop: 6 }}>
+            <RepeatDayToggle days={event.repeat_days ?? []} onChange={saveRepeatDays} />
+          </div>
+        )}
       </div>
+      {event.repeat_days && event.repeat_days.length > 0 && (
+        <RepeatBadge days={event.repeat_days} onClick={() => setEditingRepeat(v => !v)} />
+      )}
       <button
         onClick={onDelete}
         style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 14, padding: '0 2px', opacity: 0.35, transition: 'opacity 0.15s' }}
@@ -136,15 +153,17 @@ export default function Events({ date }: { date: string }) {
   const [title, setTitle] = useState('')
   const [timeStart, setTimeStart] = useState('')
   const [timeEnd, setTimeEnd] = useState('')
+  const [repeats, setRepeats] = useState(false)
+  const [repeatDays, setRepeatDays] = useState<number[]>([])
 
   useEffect(() => { getEvents(date).then(setEvents) }, [date])
 
   async function handleAdd() {
     const t = title.trim()
     if (!t) { setAdding(false); return }
-    await addEvent(date, t, timeStart || undefined, timeEnd || undefined)
+    await addEvent(date, t, timeStart || undefined, timeEnd || undefined, undefined, repeats && repeatDays.length ? repeatDays : null)
     getEvents(date).then(setEvents)
-    setTitle(''); setTimeStart(''); setTimeEnd(''); setAdding(false)
+    setTitle(''); setTimeStart(''); setTimeEnd(''); setRepeats(false); setRepeatDays([]); setAdding(false)
   }
 
   async function handleDelete(id: string) {
@@ -160,7 +179,7 @@ export default function Events({ date }: { date: string }) {
         <div style={{ fontSize: 11, color: 'var(--text-dim)', fontStyle: 'italic', padding: '4px 0' }}>No events today</div>
       )}
 
-      {events.map(ev => (
+      {sortByStartTime(events).map(ev => (
         <EventRow
           key={ev.id}
           event={ev}
@@ -194,6 +213,13 @@ export default function Events({ date }: { date: string }) {
               style={{ flex: 1, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', color: 'var(--text)', fontSize: 13, outline: 'none' }}
             />
           </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-dim)', cursor: 'pointer' }}>
+            <input type="checkbox" checked={repeats} onChange={e => setRepeats(e.target.checked)} />
+            Repeat
+          </label>
+          {repeats && (
+            <RepeatDayToggle days={repeatDays} onChange={setRepeatDays} />
+          )}
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={handleAdd} style={{ flex: 1, background: 'var(--gold)', border: 'none', borderRadius: 6, color: '#fff', padding: '6px', fontSize: 12, cursor: 'pointer' }}>Add</button>
             <button onClick={() => setAdding(false)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-dim)', padding: '6px 10px', fontSize: 12, cursor: 'pointer' }}>Cancel</button>

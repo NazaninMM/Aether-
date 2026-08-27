@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import type { DailyGoal, Task, Event, TimeBlock, DailyNote, Routine, RoutineLog, WeeklyGoal, WeeklyWin, WeeklyTask, WeeklyGoalItem, MonthlyGoal, MonthlyTask } from './types'
+import { repeatsOnDate } from './utils'
 
 // ── Daily Goal ──────────────────────────────────────
 export async function getDailyGoal(date: string): Promise<DailyGoal | null> {
@@ -27,11 +28,15 @@ export async function deleteTask(id: string) {
 
 // ── Events ───────────────────────────────────────────
 export async function getEvents(date: string): Promise<Event[]> {
-  const { data } = await supabase.from('events').select('*').eq('date', date).order('sort_order').order('created_at')
-  return data ?? []
+  const [{ data: onDate }, { data: repeating }] = await Promise.all([
+    supabase.from('events').select('*').eq('date', date).is('repeat_days', null).order('sort_order').order('created_at'),
+    supabase.from('events').select('*').not('repeat_days', 'is', null).lte('date', date),
+  ])
+  const active = (repeating ?? []).filter(e => repeatsOnDate(e.repeat_days, date))
+  return [...(onDate ?? []), ...active]
 }
-export async function addEvent(date: string, title: string, time_start?: string, time_end?: string, location?: string) {
-  const result = await supabase.from('events').insert({ date, title, time_start, time_end, location }).select().single()
+export async function addEvent(date: string, title: string, time_start?: string, time_end?: string, location?: string, repeat_days?: number[] | null) {
+  const result = await supabase.from('events').insert({ date, title, time_start, time_end, location, repeat_days: repeat_days ?? null }).select().single()
   if (result.error) console.error('[addEvent]', result.error.message)
   return result
 }
@@ -44,11 +49,15 @@ export async function deleteEvent(id: string) {
 
 // ── Time Blocks ───────────────────────────────────────
 export async function getTimeBlocks(date: string): Promise<TimeBlock[]> {
-  const { data } = await supabase.from('time_blocks').select('*').eq('date', date).order('sort_order').order('created_at')
-  return data ?? []
+  const [{ data: onDate }, { data: repeating }] = await Promise.all([
+    supabase.from('time_blocks').select('*').eq('date', date).is('repeat_days', null).order('sort_order').order('created_at'),
+    supabase.from('time_blocks').select('*').not('repeat_days', 'is', null).lte('date', date),
+  ])
+  const active = (repeating ?? []).filter(b => repeatsOnDate(b.repeat_days, date))
+  return [...(onDate ?? []), ...active]
 }
-export async function addTimeBlock(date: string, title: string, time_start?: string, time_end?: string, subtitle?: string, is_event?: boolean) {
-  return supabase.from('time_blocks').insert({ date, title, time_label: '', time_start, time_end, subtitle, is_event: is_event ?? false }).select().single()
+export async function addTimeBlock(date: string, title: string, time_start?: string, time_end?: string, subtitle?: string, is_event?: boolean, repeat_days?: number[] | null) {
+  return supabase.from('time_blocks').insert({ date, title, time_label: '', time_start, time_end, subtitle, is_event: is_event ?? false, repeat_days: repeat_days ?? null }).select().single()
 }
 export async function updateTimeBlock(id: string, fields: Partial<Omit<TimeBlock, 'id' | 'date' | 'sort_order'>>) {
   return supabase.from('time_blocks').update(fields).eq('id', id)

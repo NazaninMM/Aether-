@@ -1,6 +1,8 @@
 'use client'
 import React, { useState, useEffect, useRef } from 'react'
 import { getTimeBlocks, addTimeBlock, updateTimeBlock, deleteTimeBlock } from '@/lib/db'
+import { sortByStartTime } from '@/lib/utils'
+import { RepeatDayToggle, RepeatBadge } from './RepeatPicker'
 import type { TimeBlock } from '@/lib/types'
 
 type Priority = TimeBlock['priority']
@@ -10,15 +12,6 @@ const PRIORITY_CYCLE: Record<string, Priority> = {
 }
 const PRIORITY_COLOR: Record<string, string> = {
   low: 'var(--green)', medium: 'var(--amber)', high: '#d4703a', urgent: '#c04040',
-}
-
-function sortByStartTime(list: TimeBlock[]) {
-  return [...list].sort((a, b) => {
-    if (!a.time_start && !b.time_start) return 0
-    if (!a.time_start) return 1
-    if (!b.time_start) return -1
-    return a.time_start.localeCompare(b.time_start)
-  })
 }
 
 function fmt24to12(t: string) {
@@ -145,6 +138,7 @@ function TimeBlockRow({ block, onChange, onDelete }: {
   block: TimeBlock; onChange: (b: TimeBlock) => void; onDelete: () => void
 }) {
   const [timeError, setTimeError] = useState<string | null>(null)
+  const [editingRepeat, setEditingRepeat] = useState(false)
 
   function save(fields: Partial<TimeBlock>) {
     const updated = { ...block, ...fields }
@@ -213,6 +207,10 @@ function TimeBlockRow({ block, onChange, onDelete }: {
             />
           </div>
 
+          {block.repeat_days && block.repeat_days.length > 0 && (
+            <RepeatBadge days={block.repeat_days} onClick={() => setEditingRepeat(v => !v)} />
+          )}
+
           <button
             onClick={cyclePriority}
             title="Click to cycle priority"
@@ -247,6 +245,14 @@ function TimeBlockRow({ block, onChange, onDelete }: {
         {timeError && (
           <div style={{ fontSize: 10, color: '#c04040', marginTop: 4 }}>{timeError}</div>
         )}
+        {editingRepeat && (
+          <div style={{ marginTop: 8 }}>
+            <RepeatDayToggle
+              days={block.repeat_days ?? []}
+              onChange={d => save({ repeat_days: d.length ? d : null })}
+            />
+          </div>
+        )}
       </div>
     </div>
   )
@@ -260,6 +266,8 @@ export default function TimeBlocks({ date }: { date: string }) {
   const [title, setTitle] = useState('')
   const [subtitle, setSubtitle] = useState('')
   const [isEvent, setIsEvent] = useState(false)
+  const [repeats, setRepeats] = useState(false)
+  const [repeatDays, setRepeatDays] = useState<number[]>([])
   const [addError, setAddError] = useState<string | null>(null)
 
   useEffect(() => { getTimeBlocks(date).then(setBlocks) }, [date])
@@ -271,10 +279,10 @@ export default function TimeBlocks({ date }: { date: string }) {
       return
     }
     setAddError(null)
-    const { data } = await addTimeBlock(date, title.trim(), timeStart || undefined, timeEnd || undefined, subtitle.trim() || undefined, isEvent) as any
+    const { data } = await addTimeBlock(date, title.trim(), timeStart || undefined, timeEnd || undefined, subtitle.trim() || undefined, isEvent, repeats && repeatDays.length ? repeatDays : null) as any
     if (data) setBlocks(bs => [...bs, data])
     else getTimeBlocks(date).then(setBlocks)
-    setTimeStart(''); setTimeEnd(''); setTitle(''); setSubtitle(''); setIsEvent(false); setAdding(false)
+    setTimeStart(''); setTimeEnd(''); setTitle(''); setSubtitle(''); setIsEvent(false); setRepeats(false); setRepeatDays([]); setAdding(false)
   }
 
   async function handleDelete(id: string) {
@@ -336,10 +344,17 @@ export default function TimeBlocks({ date }: { date: string }) {
               <input type="checkbox" checked={isEvent} onChange={e => setIsEvent(e.target.checked)} />
               Mark as event
             </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-dim)', cursor: 'pointer' }}>
+              <input type="checkbox" checked={repeats} onChange={e => setRepeats(e.target.checked)} />
+              Repeat
+            </label>
             <div style={{ flex: 1 }} />
             <button onClick={handleAdd} style={{ background: 'var(--gold)', border: 'none', borderRadius: 6, color: '#fff', padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>Add</button>
             <button onClick={() => setAdding(false)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-dim)', padding: '6px 10px', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
           </div>
+          {repeats && (
+            <RepeatDayToggle days={repeatDays} onChange={setRepeatDays} />
+          )}
         </div>
       ) : (
         <button className="add-btn" onClick={() => setAdding(true)}>+ add time block</button>

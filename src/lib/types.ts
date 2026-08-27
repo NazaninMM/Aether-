@@ -28,6 +28,7 @@ export interface Event {
   time_end: string | null
   location: string | null
   sort_order: number
+  repeat_days: number[] | null   // null = one-off; [0..6] = repeats on these weekdays (0=Sun) from `date` onward
 }
 
 export interface TimeBlock {
@@ -43,6 +44,7 @@ export interface TimeBlock {
   estimated_time: string | null
   actual_time: string | null
   priority: 'low' | 'medium' | 'high' | 'urgent' | null
+  repeat_days: number[] | null   // null = one-off; [0..6] = repeats on these weekdays (0=Sun) from `date` onward
 }
 
 export interface DailyNote {

@@ -59,6 +59,22 @@ export function isRoutineActiveOnDate(days: number[] | null, dateStr: string): b
   return days.includes(dow)
 }
 
+// For events/time blocks: null/empty repeat_days means a one-off item (not repeating).
+export function repeatsOnDate(repeatDays: number[] | null, dateStr: string): boolean {
+  if (!repeatDays || repeatDays.length === 0) return false
+  const dow = new Date(dateStr + 'T12:00:00').getDay()
+  return repeatDays.includes(dow)
+}
+
+export function sortByStartTime<T extends { time_start: string | null }>(list: T[]): T[] {
+  return [...list].sort((a, b) => {
+    if (!a.time_start && !b.time_start) return 0
+    if (!a.time_start) return 1
+    if (!b.time_start) return -1
+    return a.time_start.localeCompare(b.time_start)
+  })
+}
+
 export function computeStreak(logs: { date: string; completed: boolean }[]): number {
   const sorted = [...logs].filter(l => l.completed).map(l => l.date).sort().reverse()
   if (!sorted.length) return 0
