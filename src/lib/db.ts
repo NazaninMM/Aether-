@@ -40,6 +40,21 @@ export async function addEvent(date: string, title: string, time_start?: string,
   if (result.error) console.error('[addEvent]', result.error.message)
   return result
 }
+export async function getEventsInRange(dates: string[]): Promise<Record<string, Event[]>> {
+  const startDate = dates[0], endDate = dates[dates.length - 1]
+  const [{ data: onRange }, { data: repeating }] = await Promise.all([
+    supabase.from('events').select('*').gte('date', startDate).lte('date', endDate).is('repeat_days', null),
+    supabase.from('events').select('*').not('repeat_days', 'is', null).lte('date', endDate),
+  ])
+  const byDate: Record<string, Event[]> = Object.fromEntries(dates.map(d => [d, []]))
+  for (const e of onRange ?? []) { byDate[e.date]?.push(e) }
+  for (const d of dates) {
+    for (const e of repeating ?? []) {
+      if (repeatsOnDate(e.repeat_days, d)) byDate[d].push(e)
+    }
+  }
+  return byDate
+}
 export async function updateEvent(id: string, fields: Partial<Omit<Event, 'id' | 'date' | 'sort_order'>>) {
   return supabase.from('events').update(fields).eq('id', id)
 }
@@ -58,6 +73,21 @@ export async function getTimeBlocks(date: string): Promise<TimeBlock[]> {
 }
 export async function addTimeBlock(date: string, title: string, time_start?: string, time_end?: string, subtitle?: string, is_event?: boolean, repeat_days?: number[] | null) {
   return supabase.from('time_blocks').insert({ date, title, time_label: '', time_start, time_end, subtitle, is_event: is_event ?? false, repeat_days: repeat_days ?? null }).select().single()
+}
+export async function getTimeBlocksInRange(dates: string[]): Promise<Record<string, TimeBlock[]>> {
+  const startDate = dates[0], endDate = dates[dates.length - 1]
+  const [{ data: onRange }, { data: repeating }] = await Promise.all([
+    supabase.from('time_blocks').select('*').gte('date', startDate).lte('date', endDate).is('repeat_days', null),
+    supabase.from('time_blocks').select('*').not('repeat_days', 'is', null).lte('date', endDate),
+  ])
+  const byDate: Record<string, TimeBlock[]> = Object.fromEntries(dates.map(d => [d, []]))
+  for (const b of onRange ?? []) { byDate[b.date]?.push(b) }
+  for (const d of dates) {
+    for (const b of repeating ?? []) {
+      if (repeatsOnDate(b.repeat_days, d)) byDate[d].push(b)
+    }
+  }
+  return byDate
 }
 export async function updateTimeBlock(id: string, fields: Partial<Omit<TimeBlock, 'id' | 'date' | 'sort_order'>>) {
   return supabase.from('time_blocks').update(fields).eq('id', id)

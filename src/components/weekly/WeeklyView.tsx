@@ -1,9 +1,9 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { getWeeklyGoal, upsertWeeklyGoal, getRoutines, getRoutineLogs, toggleRoutineLog, getWeeklyWins, getTasks } from '@/lib/db'
-import { getWeekStart, getWeekDates, addDays, formatDate, formatWeekRange, getWeekNumber, todayStr, isRoutineActiveOnDate } from '@/lib/utils'
-import type { WeeklyGoal, WeeklyWin, Routine, RoutineLog, Task } from '@/lib/types'
+import { getWeeklyGoal, upsertWeeklyGoal, getRoutines, getRoutineLogs, toggleRoutineLog, getWeeklyWins, getTasks, getTimeBlocksInRange, getEventsInRange } from '@/lib/db'
+import { getWeekStart, getWeekDates, addDays, formatDate, formatWeekRange, getWeekNumber, todayStr, isRoutineActiveOnDate, sortByStartTime, fmt24to12 } from '@/lib/utils'
+import type { WeeklyGoal, WeeklyWin, Routine, RoutineLog, Task, TimeBlock, Event } from '@/lib/types'
 import RoutineTracker from './RoutineTracker'
 import WeeklyWins from './WeeklyWins'
 import WeeklySidebar from './WeeklySidebar'
@@ -20,6 +20,8 @@ export default function WeeklyView({ initialWeek }: { initialWeek?: string }) {
   const [routines, setRoutines] = useState<Routine[]>([])
   const [logs, setLogs] = useState<RoutineLog[]>([])
   const [dayTasks, setDayTasks] = useState<Record<string, Task[]>>({})
+  const [dayTimeBlocks, setDayTimeBlocks] = useState<Record<string, TimeBlock[]>>({})
+  const [dayEvents, setDayEvents] = useState<Record<string, Event[]>>({})
 
   const dates = getWeekDates(weekStart)
   const today = todayStr()
@@ -36,7 +38,16 @@ export default function WeeklyView({ initialWeek }: { initialWeek?: string }) {
 
     const tasksByDay = await Promise.all(dates.map(d => getTasks(d).then(t => [d, t] as const)))
     setDayTasks(Object.fromEntries(tasksByDay))
+
+    const [blocks, events] = await Promise.all([getTimeBlocksInRange(dates), getEventsInRange(dates)])
+    setDayTimeBlocks(blocks); setDayEvents(events)
   }, [weekStart])
+
+  function scheduleFor(date: string): { id: string; title: string; time_start: string | null; isEvent: boolean }[] {
+    const blocks = (dayTimeBlocks[date] ?? []).map(b => ({ id: b.id, title: b.title, time_start: b.time_start, isEvent: b.is_event }))
+    const events = (dayEvents[date] ?? []).map(e => ({ id: e.id, title: e.title, time_start: e.time_start, isEvent: true }))
+    return sortByStartTime([...blocks, ...events])
+  }
 
   useEffect(() => { load() }, [load])
 
@@ -112,53 +123,67 @@ export default function WeeklyView({ initialWeek }: { initialWeek?: string }) {
       {/* CHARTS */}
       <WeeklyCharts weekStart={weekStart} dates={dates} dayTasks={dayTasks} routines={routines} logs={logs} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: 16, alignItems: 'start', marginTop: 16 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
 
-          {/* 7-DAY GRID */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10 }}>
-            {dates.map(date => {
-              const fmt = formatDate(date)
-              const isToday = date === today
-              const tasks = dayTasks[date] ?? []
-              const done = tasks.filter(t => t.completed).length
+        {/* 7-DAY GRID */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 14 }}>
+          {dates.map(date => {
+            const fmt = formatDate(date)
+            const isToday = date === today
+            const tasks = dayTasks[date] ?? []
+            const done = tasks.filter(t => t.completed).length
+            const schedule = scheduleFor(date)
 
-              return (
-                <div key={date} className="card" onClick={() => router.push(`/daily?date=${date}`)} style={{
-                  padding: 14, minHeight: 240, display: 'flex', flexDirection: 'column',
-                  borderColor: isToday ? 'var(--gold-dim)' : 'var(--border)',
-                  background: isToday ? 'var(--gold-glow)' : 'var(--surface)',
-                  cursor: 'pointer',
-                }}>
-                  <div style={{ paddingBottom: 10, borderBottom: '1px solid var(--border)', marginBottom: 10 }}>
-                    <div style={{ fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: isToday ? 'var(--gold)' : 'var(--text-dim)' }}>
-                      {fmt.short}{isToday ? ' · today' : ''}
-                    </div>
-                    <div style={{ fontFamily: 'Georgia, serif', fontSize: 22, color: isToday ? 'var(--gold)' : 'var(--text)', lineHeight: 1.2 }}>{fmt.day}</div>
-                    {tasks.length > 0 && <div style={{ fontSize: 9, color: 'var(--amber)', marginTop: 2 }}>{done}/{tasks.length} tasks</div>}
+            return (
+              <div key={date} className="card" onClick={() => router.push(`/daily?date=${date}`)} style={{
+                padding: 18, minHeight: 340, display: 'flex', flexDirection: 'column',
+                borderColor: isToday ? 'var(--gold-dim)' : 'var(--border)',
+                background: isToday ? 'var(--gold-glow)' : 'var(--surface)',
+                cursor: 'pointer',
+              }}>
+                <div style={{ paddingBottom: 12, borderBottom: '1px solid var(--border)', marginBottom: 12 }}>
+                  <div style={{ fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: isToday ? 'var(--gold)' : 'var(--text-dim)' }}>
+                    {fmt.short}{isToday ? ' · today' : ''}
                   </div>
+                  <div style={{ fontFamily: 'Georgia, serif', fontSize: 24, color: isToday ? 'var(--gold)' : 'var(--text)', lineHeight: 1.2 }}>{fmt.day}</div>
+                  {tasks.length > 0 && <div style={{ fontSize: 9, color: 'var(--amber)', marginTop: 2 }}>{done}/{tasks.length} tasks</div>}
+                </div>
 
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {tasks.slice(0, 5).map(t => (
-                      <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 5, fontSize: 11, color: t.completed ? 'var(--text-dim)' : 'var(--text-mid)', lineHeight: 1.4, textDecoration: t.completed ? 'line-through' : 'none' }}>
-                        <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--gold-dim)', marginTop: 4, flexShrink: 0 }} />
-                        {t.title}
+                {schedule.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                    {schedule.slice(0, 4).map(s => (
+                      <div key={s.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 11, lineHeight: 1.4 }}>
+                        <div style={{ width: 3, alignSelf: 'stretch', minHeight: 14, borderRadius: 2, background: s.isEvent ? 'var(--event-color)' : 'var(--gold-dim)', flexShrink: 0, marginTop: 1 }} />
+                        <div>
+                          {s.time_start && <div style={{ fontSize: 9, color: 'var(--text-dim)' }}>{fmt24to12(s.time_start)}</div>}
+                          <div style={{ color: 'var(--text-mid)' }}>{s.title}</div>
+                        </div>
                       </div>
                     ))}
-                    {tasks.length > 5 && <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>+{tasks.length - 5} more</div>}
+                    {schedule.length > 4 && <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>+{schedule.length - 4} more</div>}
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )}
 
-          <WeeklyGoals weekStart={weekStart} />
-          <WeeklyTasks weekStart={weekStart} />
-          <RoutineTracker routines={routines} logs={logs} dates={dates} onToggle={handleToggleLog} />
-          <WeeklyWins weekStart={weekStart} wins={wins} onRefresh={() => getWeeklyWins(weekStart).then(setWins)} />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {tasks.slice(0, 5).map(t => (
+                    <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 5, fontSize: 11, color: t.completed ? 'var(--text-dim)' : 'var(--text-mid)', lineHeight: 1.4, textDecoration: t.completed ? 'line-through' : 'none' }}>
+                      <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--gold-dim)', marginTop: 4, flexShrink: 0 }} />
+                      {t.title}
+                    </div>
+                  ))}
+                  {tasks.length > 5 && <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>+{tasks.length - 5} more</div>}
+                </div>
+              </div>
+            )
+          })}
         </div>
 
         <WeeklySidebar weekStart={weekStart} goal={goal} onGoalChange={g => setGoal(prev => ({ ...(prev ?? { id: '', week_start: weekStart, title: '', next_week_focus: '', reflection: '' }), ...g }))} />
+
+        <WeeklyGoals weekStart={weekStart} />
+        <WeeklyTasks weekStart={weekStart} />
+        <RoutineTracker routines={routines} logs={logs} dates={dates} onToggle={handleToggleLog} />
+        <WeeklyWins weekStart={weekStart} wins={wins} onRefresh={() => getWeeklyWins(weekStart).then(setWins)} />
       </div>
     </div>
   )

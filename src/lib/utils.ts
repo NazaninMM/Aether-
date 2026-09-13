@@ -66,6 +66,13 @@ export function repeatsOnDate(repeatDays: number[] | null, dateStr: string): boo
   return repeatDays.includes(dow)
 }
 
+export function fmt24to12(t: string): string {
+  if (!t) return ''
+  const [h, m] = t.split(':').map(Number)
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 export function sortByStartTime<T extends { time_start: string | null }>(list: T[]): T[] {
   return [...list].sort((a, b) => {
     if (!a.time_start && !b.time_start) return 0

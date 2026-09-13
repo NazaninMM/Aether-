@@ -27,10 +27,10 @@ export default function WeeklySidebar({ weekStart, goal, onGoalChange }: Props) 
   ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div style={{ display: 'flex', gap: 14, alignItems: 'stretch' }}>
 
       {/* Goal chain */}
-      <div className="card">
+      <div className="card" style={{ flex: 1 }}>
         <div className="card-title">✦ Goal Chain</div>
         <div>
           {chain.map((item, i) => (
@@ -48,7 +48,7 @@ export default function WeeklySidebar({ weekStart, goal, onGoalChange }: Props) 
       </div>
 
       {/* Weekly reflection */}
-      <div className="card">
+      <div className="card" style={{ flex: 1 }}>
         <div className="card-title">✦ Weekly Reflection</div>
         <textarea
           value={goal?.reflection ?? ''}
@@ -59,13 +59,13 @@ export default function WeeklySidebar({ weekStart, goal, onGoalChange }: Props) 
       </div>
 
       {/* Next week focus */}
-      <div className="card">
+      <div className="card" style={{ flex: 1 }}>
         <div className="card-title">✦ Next Week Focus</div>
         <textarea
           value={goal?.next_week_focus ?? ''}
           onChange={e => saveField('next_week_focus', e.target.value)}
           placeholder="What's the main focus for next week?"
-          style={{ width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text)', padding: '10px 12px', fontSize: 12, fontFamily: 'Georgia, serif', lineHeight: 1.7, resize: 'none', outline: 'none', height: 80, transition: 'background 0.2s' }}
+          style={{ width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text)', padding: '10px 12px', fontSize: 12, fontFamily: 'Georgia, serif', lineHeight: 1.7, resize: 'none', outline: 'none', height: 110, transition: 'background 0.2s' }}
         />
       </div>
     </div>

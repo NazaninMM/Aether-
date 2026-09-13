@@ -1,7 +1,7 @@
 'use client'
 import React, { useState, useEffect, useRef } from 'react'
 import { getTimeBlocks, addTimeBlock, updateTimeBlock, deleteTimeBlock } from '@/lib/db'
-import { sortByStartTime } from '@/lib/utils'
+import { sortByStartTime, fmt24to12 } from '@/lib/utils'
 import { RepeatDayToggle, RepeatBadge } from './RepeatPicker'
 import type { TimeBlock } from '@/lib/types'
 
@@ -13,14 +13,6 @@ const PRIORITY_CYCLE: Record<string, Priority> = {
 const PRIORITY_COLOR: Record<string, string> = {
   low: 'var(--green)', medium: 'var(--amber)', high: '#d4703a', urgent: '#c04040',
 }
-
-function fmt24to12(t: string) {
-  if (!t) return ''
-  const [h, m] = t.split(':').map(Number)
-  const ampm = h >= 12 ? 'PM' : 'AM'
-  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
-}
-
 
 function TimeField({ value, placeholder, onChange }: {
   value: string; placeholder: string; onChange: (v: string) => void

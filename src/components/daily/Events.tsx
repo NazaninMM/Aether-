@@ -1,16 +1,9 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { getEvents, addEvent, updateEvent, deleteEvent } from '@/lib/db'
-import { sortByStartTime } from '@/lib/utils'
+import { sortByStartTime, fmt24to12 } from '@/lib/utils'
 import { RepeatDayToggle, RepeatBadge } from './RepeatPicker'
 import type { Event } from '@/lib/types'
-
-function fmt24to12(t: string) {
-  if (!t) return ''
-  const [h, m] = t.split(':').map(Number)
-  const ampm = h >= 12 ? 'PM' : 'AM'
-  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
-}
 
 function calcDuration(start: string, end: string): string {
   if (!start || !end) return ''
