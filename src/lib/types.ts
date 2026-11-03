@@ -5,6 +5,7 @@ export interface DailyGoal {
 }
 
 export interface Task {
+  deadline: string | null
   id: string
   date: string
   title: string
@@ -79,6 +80,7 @@ export interface WeeklyGoal {
 }
 
 export interface WeeklyTask {
+  deadline: string | null
   id: string
   week_start: string
   title: string
@@ -114,6 +116,7 @@ export interface MonthlyGoal {
 }
 
 export interface MonthlyTask {
+  deadline: string | null
   id: string
   month_start: string
   title: string

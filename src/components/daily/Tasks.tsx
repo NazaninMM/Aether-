@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { getTasks, addTask, updateTask, deleteTask } from '@/lib/db'
+import DeadlineField from '@/components/DeadlineField'
 import type { Task } from '@/lib/types'
 import { PRIORITY_CYCLE, PRIORITY_COLOR, CATEGORY_KEYS, CATEGORY_COLOR } from '@/lib/constants'
 import { addDays } from '@/lib/utils'
@@ -248,6 +249,11 @@ function TaskRow({ task, onChange, onDelete, onCopy }: {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 5, marginLeft: 28, flexWrap: 'wrap' }}>
+        <DeadlineField value={task.deadline} onChange={async deadline => {
+          const { error } = await updateTask(task.id, { deadline })
+          if (error) throw error
+          onChange({ ...task, deadline })
+        }} />
         <TimeField value={task.time_start ?? ''} placeholder="start" onChange={v => saveField('time_start', v)} />
         <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>→</span>
         <TimeField value={task.time_end ?? ''} placeholder="end" onChange={v => saveField('time_end', v)} />
@@ -264,6 +270,8 @@ export default function Tasks({ date, onTasksChange }: { date: string; onTasksCh
   const [tasks, setTasks] = useState<Task[]>([])
   const [input, setInput] = useState('')
   const [adding, setAdding] = useState(false)
+  const [deadline, setDeadline] = useState<string | null>(null)
+  const [addError, setAddError] = useState('')
   const [newCategory, setNewCategory] = useState<Category>(null)
 
   function setAndNotify(ts: Task[]) {
@@ -276,7 +284,10 @@ export default function Tasks({ date, onTasksChange }: { date: string; onTasksCh
   async function handleAdd() {
     const title = input.trim()
     if (!title) { setAdding(false); return }
-    const { data } = await addTask(date, title, newCategory ?? undefined) as any
+    const { data, error } = await addTask(date, title, newCategory ?? undefined, deadline)
+    if (error) { setAddError('Could not add task. Please try again.'); return }
+    setAddError('')
+    setDeadline(null)
     if (data) setAndNotify([...tasks, data])
     else getTasks(date).then(t => setAndNotify(t))
     setInput('')
@@ -290,7 +301,7 @@ export default function Tasks({ date, onTasksChange }: { date: string; onTasksCh
   }
 
   async function handleCopyToTomorrow(task: Task) {
-    await addTask(addDays(date, 1), task.title, task.category ?? undefined)
+    await addTask(addDays(date, 1), task.title, task.category ?? undefined, task.deadline)
   }
 
   const done = tasks.filter(t => t.completed).length
@@ -343,9 +354,11 @@ export default function Tasks({ date, onTasksChange }: { date: string; onTasksCh
               ))}
             </select>
           </div>
+          <DeadlineField value={deadline} onChange={setDeadline} />
+          {addError && <div role="alert">{addError}</div>}
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={handleAdd} style={{ flex: 1, background: 'var(--gold)', border: 'none', borderRadius: 6, color: '#fff', padding: '6px', fontSize: 12, cursor: 'pointer' }}>Add</button>
-            <button onClick={() => { setAdding(false); setInput(''); setNewCategory(null) }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-dim)', padding: '6px 10px', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
+            <button onClick={() => { setAdding(false); setInput(''); setNewCategory(null); setDeadline(null); setAddError('') }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-dim)', padding: '6px 10px', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
           </div>
         </div>
       ) : (

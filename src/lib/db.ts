@@ -16,8 +16,8 @@ export async function getTasks(date: string): Promise<Task[]> {
   const { data } = await supabase.from('tasks').select('*').eq('date', date).order('sort_order').order('created_at')
   return data ?? []
 }
-export async function addTask(date: string, title: string, category?: Task['category']) {
-  return supabase.from('tasks').insert({ date, title, category }).select().single()
+export async function addTask(date: string, title: string, category?: Task['category'], deadline: string | null = null) {
+  return supabase.from('tasks').insert({ date, title, category, deadline }).select().single()
 }
 export async function updateTask(id: string, fields: Partial<Omit<Task, 'id' | 'date' | 'created_at'>>) {
   return supabase.from('tasks').update(fields).eq('id', id)
@@ -148,8 +148,8 @@ export async function getWeeklyTasks(week_start: string): Promise<WeeklyTask[]> 
   if (error) console.error('[getWeeklyTasks]', error)
   return data ?? []
 }
-export async function addWeeklyTask(week_start: string, title: string, category: WeeklyTask['category']) {
-  const result = await supabase.from('weekly_tasks').insert({ week_start, title, category }).select().single()
+export async function addWeeklyTask(week_start: string, title: string, category: WeeklyTask['category'], deadline: string | null = null) {
+  const result = await supabase.from('weekly_tasks').insert({ week_start, title, category, deadline }).select().single()
   if (result.error) console.error('[addWeeklyTask]', result.error)
   return result
 }
@@ -175,8 +175,8 @@ export async function getMonthlyTasks(month_start: string): Promise<MonthlyTask[
   if (error) console.error('[getMonthlyTasks]', error.message)
   return data ?? []
 }
-export async function addMonthlyTask(month_start: string, title: string, category: MonthlyTask['category']) {
-  const result = await supabase.from('monthly_tasks').insert({ month_start, title, category }).select().single()
+export async function addMonthlyTask(month_start: string, title: string, category: MonthlyTask['category'], deadline: string | null = null) {
+  const result = await supabase.from('monthly_tasks').insert({ month_start, title, category, deadline }).select().single()
   if (result.error) console.error('[addMonthlyTask]', result.error.message)
   return result
 }

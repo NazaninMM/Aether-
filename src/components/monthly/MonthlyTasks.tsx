@@ -1,14 +1,16 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { getMonthlyTasks, addMonthlyTask, updateMonthlyTask, deleteMonthlyTask } from '@/lib/db'
+import DeadlineField from '@/components/DeadlineField'
 import type { MonthlyTask } from '@/lib/types'
 import { CATEGORIES } from '@/lib/constants'
 
 type Category = MonthlyTask['category']
 
-function TaskRow({ task, onToggle, onRename, onDelete }: {
+function TaskRow({ task, onToggle, onRename, onDeadlineChange, onDelete }: {
   task: MonthlyTask
   onToggle: () => void
+  onDeadlineChange: (deadline: string | null) => Promise<void>
   onRename: (title: string) => void
   onDelete: () => void
 }) {
@@ -26,7 +28,7 @@ function TaskRow({ task, onToggle, onRename, onDelete }: {
 
   return (
     <div
-      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 0', borderBottom: '1px solid var(--border)' }}
+      style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', padding: '5px 0', borderBottom: '1px solid var(--border)' }}
       onMouseEnter={e => (e.currentTarget.querySelector('.del-btn') as HTMLElement | null)?.style.setProperty('opacity', '1')}
       onMouseLeave={e => (e.currentTarget.querySelector('.del-btn') as HTMLElement | null)?.style.setProperty('opacity', '0')}
     >
@@ -61,6 +63,7 @@ function TaskRow({ task, onToggle, onRename, onDelete }: {
         </span>
       )}
 
+      <div style={{ width: '100%', paddingLeft: 21, order: 1 }}><DeadlineField value={task.deadline} onChange={onDeadlineChange} /></div>
       <button
         className="del-btn"
         onClick={onDelete}
@@ -78,11 +81,16 @@ function CategoryColumn({ category, tasks, monthStart, onRefresh }: {
 }) {
   const [adding, setAdding] = useState(false)
   const [input, setInput] = useState('')
+  const [deadline, setDeadline] = useState<string | null>(null)
+  const [addError, setAddError] = useState('')
 
   async function handleAdd() {
     const t = input.trim()
     if (!t) { setAdding(false); return }
-    await addMonthlyTask(monthStart, t, category.key)
+    const { error } = await addMonthlyTask(monthStart, t, category.key, deadline)
+    if (error) { setAddError('Could not add task. Please try again.'); return }
+    setAddError('')
+    setDeadline(null)
     onRefresh()
     setInput('')
     setAdding(false)
@@ -104,6 +112,11 @@ function CategoryColumn({ category, tasks, monthStart, onRefresh }: {
             key={task.id}
             task={task}
             onToggle={async () => { await updateMonthlyTask(task.id, { completed: !task.completed }); onRefresh() }}
+            onDeadlineChange={async deadline => {
+              const { error } = await updateMonthlyTask(task.id, { deadline })
+              if (error) throw error
+              onRefresh()
+            }}
             onRename={async title => { await updateMonthlyTask(task.id, { title }); onRefresh() }}
             onDelete={async () => { await deleteMonthlyTask(task.id); onRefresh() }}
           />
@@ -120,9 +133,11 @@ function CategoryColumn({ category, tasks, monthStart, onRefresh }: {
             placeholder="Task…"
             style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 5, padding: '5px 8px', color: 'var(--text)', fontSize: 12, outline: 'none' }}
           />
+          <DeadlineField value={deadline} onChange={setDeadline} />
+          {addError && <div role="alert">{addError}</div>}
           <div style={{ display: 'flex', gap: 4 }}>
             <button onClick={handleAdd} style={{ flex: 1, background: category.color, border: 'none', borderRadius: 5, color: '#fff', padding: '4px', fontSize: 11, cursor: 'pointer', opacity: 0.9 }}>Add</button>
-            <button onClick={() => { setAdding(false); setInput('') }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text-dim)', padding: '4px 8px', fontSize: 11, cursor: 'pointer' }}>✕</button>
+            <button onClick={() => { setAdding(false); setInput(''); setDeadline(null); setAddError('') }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text-dim)', padding: '4px 8px', fontSize: 11, cursor: 'pointer' }}>✕</button>
           </div>
         </div>
       ) : (
