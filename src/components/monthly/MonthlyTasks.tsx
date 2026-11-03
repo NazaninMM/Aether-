@@ -154,14 +154,14 @@ function CategoryColumn({ category, tasks, monthStart, onRefresh }: {
   )
 }
 
-export default function MonthlyTasks({ monthStart, onTasksChange }: { monthStart: string; onTasksChange?: () => void }) {
+export default function MonthlyTasks({ monthStart, onTasksChange, revision = 0 }: { monthStart: string; onTasksChange?: () => void; revision?: number }) {
   const [tasks, setTasks] = useState<MonthlyTask[]>([])
 
   function refresh() {
     getMonthlyTasks(monthStart).then(setTasks)
     onTasksChange?.()
   }
-  useEffect(() => { refresh() }, [monthStart])
+  useEffect(() => { getMonthlyTasks(monthStart).then(setTasks) }, [monthStart, revision])
 
   const total = tasks.length
   const done = tasks.filter(t => t.completed).length

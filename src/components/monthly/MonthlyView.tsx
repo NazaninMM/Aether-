@@ -9,7 +9,7 @@ import {
   getMonthStart, addMonths, getMonthDates, formatMonthName,
   todayStr, isRoutineActiveOnDate,
 } from '@/lib/utils'
-import type { MonthlyGoal, DailyNote, Routine, RoutineLog } from '@/lib/types'
+import type { MonthlyGoal, DailyNote, Routine, RoutineLog, MonthOverviewTask } from '@/lib/types'
 import MonthCalendar from './MonthCalendar'
 import MonthlyTasks from './MonthlyTasks'
 import MonthlyTaskOverview from './MonthlyTaskOverview'
@@ -22,6 +22,7 @@ export default function MonthlyView({ initialMonth }: { initialMonth?: string })
   const today = todayStr()
   const [monthStart, setMonthStart] = useState(() => initialMonth ? getMonthStart(initialMonth) : getMonthStart(today))
   const [taskRevision, setTaskRevision] = useState(0)
+  const [monthlyTaskRevision, setMonthlyTaskRevision] = useState(0)
   const [goal, setGoal] = useState<MonthlyGoal | null>(null)
   const [editingGoal, setEditingGoal] = useState(false)
   const [tasksByDate, setTasksByDate] = useState<Record<string, CalTask[]>>({})
@@ -58,6 +59,15 @@ export default function MonthlyView({ initialMonth }: { initialMonth?: string })
   }, [monthStart])
 
   useEffect(() => { load() }, [load])
+
+  function handleOverviewTaskChange(task: MonthOverviewTask) {
+    if (task.source === 'monthly') setMonthlyTaskRevision(n => n + 1)
+    if (task.source === 'daily') {
+      setTasksByDate(current => Object.fromEntries(Object.entries(current).map(([date, tasks]) => [
+        date, tasks.map(item => item.id === task.id ? { ...item, completed: task.completed } : item),
+      ])))
+    }
+  }
 
   function handleGoalBlur() {
     setEditingGoal(false)
@@ -161,12 +171,12 @@ export default function MonthlyView({ initialMonth }: { initialMonth?: string })
       </div>
 
       <div style={{ marginBottom: 16 }}>
-        <MonthlyTaskOverview key={monthStart} monthStart={monthStart} revision={taskRevision} />
+        <MonthlyTaskOverview key={monthStart} monthStart={monthStart} revision={taskRevision} onTaskChange={handleOverviewTaskChange} />
       </div>
 
       {/* MONTHLY TASKS */}
       <div style={{ marginBottom: 16 }}>
-        <MonthlyTasks monthStart={monthStart} onTasksChange={() => setTaskRevision(n => n + 1)} />
+        <MonthlyTasks monthStart={monthStart} revision={monthlyTaskRevision} onTasksChange={() => setTaskRevision(n => n + 1)} />
       </div>
 
       {/* HABIT HEATMAP */}

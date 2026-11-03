@@ -1,12 +1,13 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { getMonthOverviewTasks } from '@/lib/db'
+import { getMonthOverviewTasks, updateTask, updateWeeklyTask, updateMonthlyTask } from '@/lib/db'
+import { CATEGORIES } from '@/lib/constants'
 import type { MonthOverviewTask } from '@/lib/types'
 import { formatMonthName, formatWeekRange, getMonthDates } from '@/lib/utils'
 
 function formatDate(date: string) {
-  return new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 function taskHref(task: MonthOverviewTask) {
@@ -15,7 +16,37 @@ function taskHref(task: MonthOverviewTask) {
   return `/monthly?month=${task.scheduled_date}`
 }
 
-export default function MonthlyTaskOverview({ monthStart, revision }: { monthStart: string; revision: number }) {
+export default function MonthlyTaskOverview({ monthStart, revision, onTaskChange }: {
+  monthStart: string
+  revision: number
+  onTaskChange: (task: MonthOverviewTask) => void
+}) {
+  const pendingRef = useRef(new Set<string>())
+  const [pending, setPending] = useState<Set<string>>(new Set())
+  const [saveError, setSaveError] = useState('')
+
+  async function toggle(task: MonthOverviewTask) {
+    const key = `${task.source}:${task.id}`
+    if (pendingRef.current.has(key)) return
+    pendingRef.current.add(key)
+    setPending(new Set(pendingRef.current))
+    setSaveError('')
+    try {
+      const update = task.source === 'daily' ? updateTask : task.source === 'weekly' ? updateWeeklyTask : updateMonthlyTask
+      const completed = !task.completed
+      const { error } = await update(task.id, { completed })
+      if (error) throw error
+      setState(current => current ? { ...current, tasks: current.tasks.map(item =>
+        item.id === task.id && item.source === task.source ? { ...item, completed } : item
+      ) } : current)
+      onTaskChange({ ...task, completed })
+    } catch {
+      setSaveError(`Could not update "${task.title}". Please try again.`)
+    } finally {
+      pendingRef.current.delete(key)
+      setPending(new Set(pendingRef.current))
+    }
+  }
   const [state, setState] = useState<{
     month: string; revision: number; tasks: MonthOverviewTask[]; error: string
   } | null>(null)
@@ -34,6 +65,17 @@ export default function MonthlyTaskOverview({ monthStart, revision }: { monthSta
   const loading = !state || state.month !== monthStart || state.revision !== revision
   const tasks = loading ? [] : state.tasks
   const done = tasks.filter(task => task.completed).length
+  const groups = [
+    ...CATEGORIES,
+    { key: 'uncategorized', label: 'Uncategorized', color: 'var(--text-dim)' },
+  ].map(category => ({
+    ...category,
+    tasks: tasks.filter(task => (task.category ?? 'uncategorized') === category.key)
+      .sort((a, b) => Number(a.completed) - Number(b.completed)
+        || (a.deadline ?? '9999-12-31').localeCompare(b.deadline ?? '9999-12-31')
+        || a.scheduled_date.localeCompare(b.scheduled_date)
+        || a.title.localeCompare(b.title)),
+  })).filter(group => group.tasks.length > 0)
 
   return (
     <section className="card" aria-label="Monthly task overview" aria-busy={loading}>
@@ -44,6 +86,7 @@ export default function MonthlyTaskOverview({ monthStart, revision }: { monthSta
       <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: '8px 0 14px' }}>
         Daily, weekly, and monthly tasks scheduled for or due in {formatMonthName(monthStart)}.
       </p>
+      {saveError && <p role="alert" style={{ fontSize: 12 }}>{saveError}</p>}
       {loading ? <p role="status">Loading tasks...</p> : state.error ? (
         <div role="alert">
           {state.error} <button type="button" onClick={() => { setState(null); setRetry(n => n + 1) }}>Retry</button>
@@ -51,21 +94,35 @@ export default function MonthlyTaskOverview({ monthStart, revision }: { monthSta
       ) : tasks.length === 0 ? (
         <p style={{ fontSize: 13, color: 'var(--text-dim)' }}>No tasks scheduled for or due this month.</p>
       ) : (
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-          {tasks.map(task => (
-            <li key={`${task.source}:${task.id}`} style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '6px 16px', padding: '12px 0', borderTop: '1px solid var(--border)' }}>
-              <div style={{ flex: '1 1 240px', minWidth: 0 }}>
-                <Link href={taskHref(task)} style={{ fontSize: 13, overflowWrap: 'anywhere', color: task.completed ? 'var(--text-dim)' : 'var(--text)', textDecoration: task.completed ? 'line-through' : 'none' }}>{task.title}</Link>
-                <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-dim)' }}>
-                  {task.source === 'daily' ? `Daily / ${formatDate(task.scheduled_date)}` : task.source === 'weekly' ? `Weekly / ${formatWeekRange(task.scheduled_date)}` : `Monthly / ${formatMonthName(task.scheduled_date)}`}
-                  {task.category && ` / ${task.category}`}
-                </div>
-              </div>
-              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{task.deadline ? `Due ${formatDate(task.deadline)}` : 'No deadline'}</span>
-              <span style={{ fontSize: 11, color: task.completed ? 'var(--green)' : 'var(--amber)' }}>{task.completed ? 'Completed' : 'To do'}</span>
-            </li>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '16px 24px' }}>
+          {groups.map(group => (
+            <section key={group.key} aria-label={`${group.label} tasks`} style={{ minWidth: 0 }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 5px', paddingBottom: 6, borderBottom: `2px solid ${group.color}`, color: group.color, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase' }}>
+                {group.label}
+                <span style={{ marginLeft: 'auto', color: 'var(--text-dim)', fontSize: 10, fontWeight: 400, letterSpacing: 0 }}>
+                  {group.tasks.filter(task => task.completed).length}/{group.tasks.length} done
+                </span>
+              </h3>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {group.tasks.map(task => (
+                  <li key={`${task.source}:${task.id}`} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                    <input
+                      type="checkbox"
+                      checked={task.completed}
+                      disabled={pending.has(`${task.source}:${task.id}`)}
+                      onChange={() => void toggle(task)}
+                      aria-label={`Mark ${task.title} as ${task.completed ? 'incomplete' : 'complete'}`}
+                      style={{ margin: 0, width: 14, height: 14, flexShrink: 0, accentColor: group.color, cursor: 'pointer' }}
+                    />
+                    <Link href={taskHref(task)} title={task.source === 'weekly' ? formatWeekRange(task.scheduled_date) : formatDate(task.scheduled_date)} style={{ flex: 1, minWidth: 0, fontSize: 12, overflowWrap: 'anywhere', color: task.completed ? 'var(--text-dim)' : 'var(--text)', textDecoration: task.completed ? 'line-through' : 'none' }}>{task.title}</Link>
+                    <span style={{ fontSize: 9, padding: '2px 4px', borderRadius: 4, background: 'var(--surface-2)', color: 'var(--text-dim)', textTransform: 'capitalize', flexShrink: 0 }}>{task.source}</span>
+                    {task.deadline && <span style={{ fontSize: 10, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Due {formatDate(task.deadline)}</span>}
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       )}
     </section>
   )
