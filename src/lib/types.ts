@@ -125,3 +125,13 @@ export interface MonthlyTask {
   sort_order: number
   created_at: string
 }
+
+export interface MonthOverviewTask {
+  id: string
+  source: 'daily' | 'weekly' | 'monthly'
+  scheduled_date: string
+  title: string
+  completed: boolean
+  category: Task['category']
+  deadline: string | null
+}

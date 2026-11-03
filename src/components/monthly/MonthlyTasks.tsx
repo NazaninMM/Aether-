@@ -154,10 +154,13 @@ function CategoryColumn({ category, tasks, monthStart, onRefresh }: {
   )
 }
 
-export default function MonthlyTasks({ monthStart }: { monthStart: string }) {
+export default function MonthlyTasks({ monthStart, onTasksChange }: { monthStart: string; onTasksChange?: () => void }) {
   const [tasks, setTasks] = useState<MonthlyTask[]>([])
 
-  function refresh() { getMonthlyTasks(monthStart).then(setTasks) }
+  function refresh() {
+    getMonthlyTasks(monthStart).then(setTasks)
+    onTasksChange?.()
+  }
   useEffect(() => { refresh() }, [monthStart])
 
   const total = tasks.length

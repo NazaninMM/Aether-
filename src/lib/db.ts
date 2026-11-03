@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
-import type { DailyGoal, Task, Event, TimeBlock, DailyNote, Routine, RoutineLog, WeeklyGoal, WeeklyWin, WeeklyTask, WeeklyGoalItem, MonthlyGoal, MonthlyTask } from './types'
-import { repeatsOnDate } from './utils'
+import type { DailyGoal, Task, Event, TimeBlock, DailyNote, Routine, RoutineLog, WeeklyGoal, WeeklyWin, WeeklyTask, WeeklyGoalItem, MonthlyGoal, MonthlyTask, MonthOverviewTask } from './types'
+import { repeatsOnDate, getWeekStart } from './utils'
 
 // ── Daily Goal ──────────────────────────────────────
 export async function getDailyGoal(date: string): Promise<DailyGoal | null> {
@@ -225,4 +225,50 @@ export async function addWeeklyWin(week_start: string, content: string, day_labe
 }
 export async function deleteWeeklyWin(id: string) {
   return supabase.from('weekly_wins').delete().eq('id', id)
+}
+
+// Include a task once when its scheduled period or deadline is in the month.
+// A week spanning two months belongs in both monthly overviews.
+export async function getMonthOverviewTasks(startDate: string, endDate: string): Promise<MonthOverviewTask[]> {
+  async function fetchSource(
+    table: 'tasks' | 'weekly_tasks' | 'monthly_tasks',
+    dateColumn: 'date' | 'week_start' | 'month_start',
+    source: MonthOverviewTask['source'],
+  ): Promise<MonthOverviewTask[]> {
+    const scheduledStart = source === 'weekly' ? getWeekStart(startDate) : startDate
+    const filter = `and(${dateColumn}.gte.${scheduledStart},${dateColumn}.lte.${endDate}),and(deadline.gte.${startDate},deadline.lte.${endDate})`
+    const tasks: MonthOverviewTask[] = []
+    // Supabase limits result sizes, so fetch every page for busy months.
+    const pageSize = 500
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await supabase.from(table)
+        .select(`id, title, completed, category, deadline, ${dateColumn}`)
+        .or(filter).order('id').range(offset, offset + pageSize - 1)
+      if (error) throw error
+      const rows = (data ?? []) as unknown as Array<{
+        id: string; title: string; completed: boolean
+        category: Task['category']; deadline: string | null
+        date?: string; week_start?: string; month_start?: string
+      }>
+      tasks.push(...rows.map(task => ({
+        id: task.id, title: task.title, completed: task.completed,
+        category: task.category, deadline: task.deadline,
+        source, scheduled_date: task[dateColumn]!,
+      })))
+      if (rows.length < pageSize) return tasks
+    }
+  }
+  const groups = await Promise.all([
+    fetchSource('tasks', 'date', 'daily'),
+    fetchSource('weekly_tasks', 'week_start', 'weekly'),
+    fetchSource('monthly_tasks', 'month_start', 'monthly'),
+  ])
+  return groups.flat().sort((a, b) =>
+    Number(a.completed) - Number(b.completed)
+    || (a.deadline ?? '9999-12-31').localeCompare(b.deadline ?? '9999-12-31')
+    || a.scheduled_date.localeCompare(b.scheduled_date)
+    || a.title.localeCompare(b.title)
+    || a.source.localeCompare(b.source)
+    || a.id.localeCompare(b.id)
+  )
 }
