@@ -1,6 +1,65 @@
 import { supabase } from './supabase'
-import type { DailyGoal, Task, Event, TimeBlock, DailyNote, Routine, RoutineLog, WeeklyGoal, WeeklyWin, WeeklyTask, WeeklyGoalItem, MonthlyGoal, MonthlyTask, MonthOverviewTask } from './types'
+import type { DailyGoal, Task, Event, TimeBlock, DailyNote, Routine, RoutineLog, WeeklyGoal, WeeklyWin, WeeklyTask, WeeklyGoalItem, MonthlyGoal, MonthlyTask, MonthOverviewTask, StudyCourse, StudyTask } from './types'
 import { repeatsOnDate, getWeekStart } from './utils'
+
+async function attachStudyCourses<T extends { study_task_id?: string | null }>(rows: T[]): Promise<Array<T & { course: StudyCourse | null }>> {
+  const taskIds = [...new Set(rows.map(row => row.study_task_id).filter((id): id is string => Boolean(id)))]
+  if (taskIds.length === 0) return rows.map(row => ({ ...row, course: null }))
+
+  const { data: linkedTasks, error: taskError } = await supabase
+    .from('study_tasks').select('id, course_id').in('id', taskIds)
+  if (taskError) throw taskError
+
+  const courseIds = [...new Set((linkedTasks ?? []).map(task => task.course_id).filter((id): id is string => Boolean(id)))]
+  if (courseIds.length === 0) return rows.map(row => ({ ...row, course: null }))
+
+  const { data: courses, error: courseError } = await supabase.from('study_courses').select('*').in('id', courseIds)
+  if (courseError) throw courseError
+  const courseByTaskId = new Map((linkedTasks ?? []).map(task => [
+    task.id,
+    (courses ?? []).find(course => course.id === task.course_id) ?? null,
+  ]))
+  return rows.map(row => ({
+    ...row,
+    course: row.study_task_id ? courseByTaskId.get(row.study_task_id) ?? null : null,
+  }))
+}
+
+export async function getStudyCourses(): Promise<StudyCourse[]> {
+  const { data, error } = await supabase.from('study_courses').select('*').order('sort_order').order('name')
+  if (error) throw error
+  return data ?? []
+}
+export async function addStudyCourse(name: string, color: string) {
+  return supabase.from('study_courses').insert({ name, color }).select().single()
+}
+export async function updateStudyCourse(id: string, fields: Pick<StudyCourse, 'name' | 'color'>) {
+  return supabase.from('study_courses').update(fields).eq('id', id)
+}
+export async function deleteStudyCourse(id: string) {
+  return supabase.from('study_courses').delete().eq('id', id)
+}
+export async function getStudyTasks(): Promise<StudyTask[]> {
+  const { data, error } = await supabase.from('study_tasks').select('*').order('sort_order').order('created_at')
+  if (error) throw error
+  const courses = await getStudyCourses()
+  const courseById = new Map(courses.map(course => [course.id, course]))
+  return (data ?? []).map(task => ({
+    ...task,
+    course: task.course_id ? courseById.get(task.course_id) ?? null : null,
+  }))
+}
+export async function addStudyTask(title: string, deadline: string | null, priority: StudyTask['priority'], course_id: string | null) {
+  return supabase.from('study_tasks')
+    .insert({ title, deadline, priority, course_id })
+    .select('*').single()
+}
+export async function updateStudyTask(id: string, fields: Partial<Pick<StudyTask, 'title' | 'deadline' | 'priority' | 'course_id' | 'completed' | 'sort_order'>>) {
+  return supabase.from('study_tasks').update(fields).eq('id', id)
+}
+export async function deleteStudyTask(id: string) {
+  return supabase.from('study_tasks').delete().eq('id', id)
+}
 
 // ── Daily Goal ──────────────────────────────────────
 export async function getDailyGoal(date: string): Promise<DailyGoal | null> {
@@ -14,10 +73,10 @@ export async function upsertDailyGoal(date: string, title: string) {
 // ── Tasks ────────────────────────────────────────────
 export async function getTasks(date: string): Promise<Task[]> {
   const { data } = await supabase.from('tasks').select('*').eq('date', date).order('sort_order').order('created_at')
-  return data ?? []
+  return await attachStudyCourses(data ?? []) as Task[]
 }
-export async function addTask(date: string, title: string, category?: Task['category'], deadline: string | null = null) {
-  return supabase.from('tasks').insert({ date, title, category, deadline }).select().single()
+export async function addTask(date: string, title: string, category?: Task['category'], deadline: string | null = null, priority: Task['priority'] = null) {
+  return supabase.from('tasks').insert({ date, title, category, deadline, priority }).select().single()
 }
 export async function updateTask(id: string, fields: Partial<Omit<Task, 'id' | 'date' | 'created_at'>>) {
   return supabase.from('tasks').update(fields).eq('id', id)
@@ -146,10 +205,10 @@ export async function upsertWeeklyGoal(week_start: string, fields: Partial<Weekl
 export async function getWeeklyTasks(week_start: string): Promise<WeeklyTask[]> {
   const { data, error } = await supabase.from('weekly_tasks').select('*').eq('week_start', week_start).order('sort_order').order('created_at')
   if (error) console.error('[getWeeklyTasks]', error)
-  return data ?? []
+  return await attachStudyCourses(data ?? []) as WeeklyTask[]
 }
-export async function addWeeklyTask(week_start: string, title: string, category: WeeklyTask['category'], deadline: string | null = null) {
-  const result = await supabase.from('weekly_tasks').insert({ week_start, title, category, deadline }).select().single()
+export async function addWeeklyTask(week_start: string, title: string, category: WeeklyTask['category'], deadline: string | null = null, priority: WeeklyTask['priority'] = null) {
+  const result = await supabase.from('weekly_tasks').insert({ week_start, title, category, deadline, priority }).select().single()
   if (result.error) console.error('[addWeeklyTask]', result.error)
   return result
 }
@@ -173,10 +232,10 @@ export async function upsertMonthlyGoal(month_start: string, title: string) {
 export async function getMonthlyTasks(month_start: string): Promise<MonthlyTask[]> {
   const { data, error } = await supabase.from('monthly_tasks').select('*').eq('month_start', month_start).order('sort_order').order('created_at')
   if (error) console.error('[getMonthlyTasks]', error.message)
-  return data ?? []
+  return await attachStudyCourses(data ?? []) as MonthlyTask[]
 }
-export async function addMonthlyTask(month_start: string, title: string, category: MonthlyTask['category'], deadline: string | null = null) {
-  const result = await supabase.from('monthly_tasks').insert({ month_start, title, category, deadline }).select().single()
+export async function addMonthlyTask(month_start: string, title: string, category: MonthlyTask['category'], deadline: string | null = null, priority: MonthlyTask['priority'] = null) {
+  const result = await supabase.from('monthly_tasks').insert({ month_start, title, category, deadline, priority }).select().single()
   if (result.error) console.error('[addMonthlyTask]', result.error.message)
   return result
 }
@@ -242,18 +301,21 @@ export async function getMonthOverviewTasks(startDate: string, endDate: string):
     const pageSize = 500
     for (let offset = 0; ; offset += pageSize) {
       const { data, error } = await supabase.from(table)
-        .select(`id, title, completed, category, deadline, ${dateColumn}`)
+        .select(`id, title, completed, category, deadline, priority, ${dateColumn}, study_task_id`)
         .or(filter).order('id').range(offset, offset + pageSize - 1)
       if (error) throw error
       const rows = (data ?? []) as unknown as Array<{
         id: string; title: string; completed: boolean
-        category: Task['category']; deadline: string | null
+        category: Task['category']; deadline: string | null; priority: Task['priority']
+        study_task_id: string | null
         date?: string; week_start?: string; month_start?: string
       }>
-      tasks.push(...rows.map(task => ({
-        id: task.id, title: task.title, completed: task.completed,
-        category: task.category, deadline: task.deadline,
+      const enriched = await attachStudyCourses(rows)
+      tasks.push(...enriched.map(task => ({
+        id: task.id, study_task_id: task.study_task_id, title: task.title, completed: task.completed,
+        category: task.category, deadline: task.deadline, priority: task.priority,
         source, scheduled_date: task[dateColumn]!,
+        course: task.course,
       })))
       if (rows.length < pageSize) return tasks
     }
@@ -263,7 +325,7 @@ export async function getMonthOverviewTasks(startDate: string, endDate: string):
     fetchSource('weekly_tasks', 'week_start', 'weekly'),
     fetchSource('monthly_tasks', 'month_start', 'monthly'),
   ])
-  return groups.flat().sort((a, b) =>
+  const sorted = groups.flat().sort((a, b) =>
     Number(a.completed) - Number(b.completed)
     || (a.deadline ?? '9999-12-31').localeCompare(b.deadline ?? '9999-12-31')
     || a.scheduled_date.localeCompare(b.scheduled_date)
@@ -271,4 +333,11 @@ export async function getMonthOverviewTasks(startDate: string, endDate: string):
     || a.source.localeCompare(b.source)
     || a.id.localeCompare(b.id)
   )
+  const seenStudyTasks = new Set<string>()
+  return sorted.filter(task => {
+    if (!task.study_task_id) return true
+    if (seenStudyTasks.has(task.study_task_id)) return false
+    seenStudyTasks.add(task.study_task_id)
+    return true
+  })
 }

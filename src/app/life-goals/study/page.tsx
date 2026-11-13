@@ -1,17 +1,10 @@
 import type { Metadata } from 'next'
-import styles from '@/components/life-goals/LifeGoalsView.module.css'
+import StudyTasks from '@/components/study/StudyTasks'
 
 export const metadata: Metadata = {
   title: 'Study | Aether',
 }
 
 export default function StudyPage() {
-  return (
-    <section
-      id="study-world"
-      className={styles.studyWorld}
-      aria-label="Study"
-      tabIndex={-1}
-    />
-  )
+  return <StudyTasks />
 }

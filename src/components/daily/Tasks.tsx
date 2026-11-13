@@ -1,10 +1,11 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { getTasks, addTask, updateTask, deleteTask } from '@/lib/db'
+import { getTasks, addTask, updateTask, deleteTask, getStudyCourses, updateStudyTask } from '@/lib/db'
 import DeadlineField from '@/components/DeadlineField'
-import type { Task } from '@/lib/types'
+import type { StudyCourse, Task } from '@/lib/types'
 import { PRIORITY_CYCLE, PRIORITY_COLOR, CATEGORY_KEYS, CATEGORY_COLOR } from '@/lib/constants'
 import { addDays } from '@/lib/utils'
+import StudyCourseSelect from '@/components/study/StudyCourseSelect'
 
 type Priority = Task['priority']
 type Category = Task['category']
@@ -90,12 +91,13 @@ function TextField({ value, placeholder, icon, onChange }: {
   )
 }
 
-function TaskRow({ task, onChange, onDelete, onCopy }: {
-  task: Task; onChange: (t: Task) => void; onDelete: () => void; onCopy: () => void
+function TaskRow({ task, courses, onChange, onDelete, onCopy, onRefresh }: {
+  task: Task; courses: StudyCourse[]; onChange: (t: Task) => void; onDelete: () => void; onCopy: () => void; onRefresh: () => void
 }) {
   const [editingTitle, setEditingTitle] = useState(false)
   const [title, setTitle] = useState(task.title)
   const [copied, setCopied] = useState(false)
+  const [courseError, setCourseError] = useState('')
   const titleRef = useRef<HTMLInputElement>(null)
   useEffect(() => { if (editingTitle) titleRef.current?.focus() }, [editingTitle])
 
@@ -130,7 +132,7 @@ function TaskRow({ task, onChange, onDelete, onCopy }: {
     const idx = task.category ? CATEGORY_KEYS.indexOf(task.category) : -1
     const next: Category = idx < CATEGORY_KEYS.length - 1 ? CATEGORY_KEYS[idx + 1] : null
     onChange({ ...task, category: next })
-    updateTask(task.id, { category: next })
+    updateTask(task.id, { category: next }).then(() => onRefresh())
   }
 
   function toggleComplete() {
@@ -204,6 +206,21 @@ function TaskRow({ task, onChange, onDelete, onCopy }: {
         >
           {cat ?? '—'}
         </span>
+        {cat === 'study' && task.study_task_id && (
+          <StudyCourseSelect
+            value={task.course?.id ?? ''}
+            courses={courses}
+            label={`Course for ${task.title}`}
+            onChange={async course_id => {
+              const course = courses.find(item => item.id === course_id) ?? null
+              const { error } = await updateStudyTask(task.study_task_id!, { course_id: course_id || null })
+              if (error) { setCourseError('Could not update the course tag.'); return }
+              setCourseError('')
+              onChange({ ...task, course })
+              onRefresh()
+            }}
+          />
+        )}
 
         {/* Priority badge */}
         <button
@@ -262,6 +279,7 @@ function TaskRow({ task, onChange, onDelete, onCopy }: {
         <span style={{ color: 'var(--border-light)', fontSize: 11, margin: '0 4px' }}>·</span>
         <TextField value={task.actual_time ?? ''} placeholder="took" icon="⏱" onChange={v => saveField('actual_time', v)} />
       </div>
+      {courseError && <div role="alert" style={{ margin: '4px 0 0 28px', color: '#e87078', fontSize: 10 }}>{courseError}</div>}
     </div>
   )
 }
@@ -273,6 +291,9 @@ export default function Tasks({ date, onTasksChange }: { date: string; onTasksCh
   const [deadline, setDeadline] = useState<string | null>(null)
   const [addError, setAddError] = useState('')
   const [newCategory, setNewCategory] = useState<Category>(null)
+  const [newPriority, setNewPriority] = useState<Priority>(null)
+  const [newCourseId, setNewCourseId] = useState('')
+  const [courses, setCourses] = useState<StudyCourse[]>([])
 
   function setAndNotify(ts: Task[]) {
     setTasks(ts)
@@ -280,18 +301,30 @@ export default function Tasks({ date, onTasksChange }: { date: string; onTasksCh
   }
 
   useEffect(() => { getTasks(date).then(t => setAndNotify(t)) }, [date])
+  useEffect(() => {
+    getStudyCourses().then(setCourses).catch(() => setAddError('Could not load course tags.'))
+  }, [])
 
   async function handleAdd() {
     const title = input.trim()
     if (!title) { setAdding(false); return }
-    const { data, error } = await addTask(date, title, newCategory ?? undefined, deadline)
+    const { data, error } = await addTask(date, title, newCategory ?? undefined, deadline, newPriority)
     if (error) { setAddError('Could not add task. Please try again.'); return }
+    if (newCategory === 'study' && data?.study_task_id && newCourseId) {
+      const { error: courseError } = await updateStudyTask(data.study_task_id, { course_id: newCourseId })
+      if (courseError) { setAddError('Task added, but its course tag could not be saved.'); return }
+    }
     setAddError('')
     setDeadline(null)
-    if (data) setAndNotify([...tasks, data])
+    if (data) {
+      const course = courses.find(item => item.id === newCourseId) ?? null
+      setAndNotify([...tasks, { ...data, study_task_id: data.study_task_id ?? null, course }])
+    }
     else getTasks(date).then(t => setAndNotify(t))
     setInput('')
     setNewCategory(null)
+    setNewPriority(null)
+    setNewCourseId('')
     setAdding(false)
   }
 
@@ -301,7 +334,12 @@ export default function Tasks({ date, onTasksChange }: { date: string; onTasksCh
   }
 
   async function handleCopyToTomorrow(task: Task) {
-    await addTask(addDays(date, 1), task.title, task.category ?? undefined, task.deadline)
+    const { data, error } = await addTask(addDays(date, 1), task.title, task.category ?? undefined, task.deadline, task.priority)
+    if (error) { console.error('[copyTaskToTomorrow]', error); return }
+    if (task.category === 'study' && task.course && data?.study_task_id) {
+      const { error: courseError } = await updateStudyTask(data.study_task_id, { course_id: task.course.id })
+      if (courseError) console.error('[copyTaskToTomorrow course]', courseError)
+    }
   }
 
   const done = tasks.filter(t => t.completed).length
@@ -317,9 +355,11 @@ export default function Tasks({ date, onTasksChange }: { date: string; onTasksCh
         <TaskRow
           key={task.id}
           task={task}
+          courses={courses}
           onChange={updated => setAndNotify(tasks.map(t => t.id === updated.id ? updated : t))}
           onDelete={() => handleDelete(task.id)}
           onCopy={() => handleCopyToTomorrow(task)}
+          onRefresh={() => getTasks(date).then(setAndNotify)}
         />
       ))}
 
@@ -353,12 +393,27 @@ export default function Tasks({ date, onTasksChange }: { date: string; onTasksCh
                 <option key={k} value={k}>{k.charAt(0).toUpperCase() + k.slice(1)}</option>
               ))}
             </select>
+            <select
+              value={newPriority ?? ''}
+              onChange={e => setNewPriority((e.target.value as Priority) || null)}
+              aria-label="Task priority"
+              style={{
+                background: 'var(--surface-2)', border: '1px solid var(--border)',
+                borderRadius: 6, padding: '6px 10px', outline: 'none', cursor: 'pointer',
+                color: newPriority ? PRIORITY_COLOR[newPriority] : 'var(--text-dim)',
+                fontSize: 12, flexShrink: 0,
+              }}
+            >
+              <option value="">priority…</option>
+              {(['low', 'medium', 'high', 'urgent'] as const).map(value => <option key={value} value={value}>{value}</option>)}
+            </select>
           </div>
+          {newCategory === 'study' && <StudyCourseSelect value={newCourseId} courses={courses} onChange={setNewCourseId} />}
           <DeadlineField value={deadline} onChange={setDeadline} />
           {addError && <div role="alert">{addError}</div>}
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={handleAdd} style={{ flex: 1, background: 'var(--gold)', border: 'none', borderRadius: 6, color: '#fff', padding: '6px', fontSize: 12, cursor: 'pointer' }}>Add</button>
-            <button onClick={() => { setAdding(false); setInput(''); setNewCategory(null); setDeadline(null); setAddError('') }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-dim)', padding: '6px 10px', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
+            <button onClick={() => { setAdding(false); setInput(''); setNewCategory(null); setNewPriority(null); setNewCourseId(''); setDeadline(null); setAddError('') }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-dim)', padding: '6px 10px', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
           </div>
         </div>
       ) : (

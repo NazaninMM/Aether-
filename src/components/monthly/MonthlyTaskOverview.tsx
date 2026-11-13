@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { getMonthOverviewTasks, updateTask, updateWeeklyTask, updateMonthlyTask } from '@/lib/db'
-import { CATEGORIES } from '@/lib/constants'
+import { CATEGORIES, PRIORITY_COLOR } from '@/lib/constants'
 import type { MonthOverviewTask } from '@/lib/types'
 import { formatMonthName, formatWeekRange, getMonthDates } from '@/lib/utils'
 
@@ -115,6 +115,8 @@ export default function MonthlyTaskOverview({ monthStart, revision, onTaskChange
                       style={{ margin: 0, width: 14, height: 14, flexShrink: 0, accentColor: group.color, cursor: 'pointer' }}
                     />
                     <Link href={taskHref(task)} title={task.source === 'weekly' ? formatWeekRange(task.scheduled_date) : formatDate(task.scheduled_date)} style={{ flex: 1, minWidth: 0, fontSize: 12, overflowWrap: 'anywhere', color: task.completed ? 'var(--text-dim)' : 'var(--text)', textDecoration: task.completed ? 'line-through' : 'none' }}>{task.title}</Link>
+                    {task.course && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 9, padding: '2px 6px', borderRadius: 999, background: `${task.course.color}22`, color: task.course.color }}><span style={{ width: 5, height: 5, flexShrink: 0, borderRadius: '50%', background: task.course.color }} />{task.course.name}</span>}
+                    {task.priority && <span style={{ fontSize: 9, padding: '2px 5px', borderRadius: 999, background: `${PRIORITY_COLOR[task.priority]}22`, color: PRIORITY_COLOR[task.priority], textTransform: 'capitalize' }}>{task.priority}</span>}
                     <span style={{ fontSize: 9, padding: '2px 4px', borderRadius: 4, background: 'var(--surface-2)', color: 'var(--text-dim)', textTransform: 'capitalize', flexShrink: 0 }}>{task.source}</span>
                     {task.deadline && <span style={{ fontSize: 10, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Due {formatDate(task.deadline)}</span>}
                   </li>

@@ -1,18 +1,21 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { getMonthlyTasks, addMonthlyTask, updateMonthlyTask, deleteMonthlyTask } from '@/lib/db'
+import { getMonthlyTasks, addMonthlyTask, updateMonthlyTask, deleteMonthlyTask, getStudyCourses, updateStudyTask } from '@/lib/db'
 import DeadlineField from '@/components/DeadlineField'
-import type { MonthlyTask } from '@/lib/types'
-import { CATEGORIES } from '@/lib/constants'
+import type { MonthlyTask, StudyCourse } from '@/lib/types'
+import { CATEGORIES, type PriorityKey } from '@/lib/constants'
+import StudyCourseSelect from '@/components/study/StudyCourseSelect'
+import TaskPriorityField from '@/components/study/TaskPriorityField'
 
-type Category = MonthlyTask['category']
-
-function TaskRow({ task, onToggle, onRename, onDeadlineChange, onDelete }: {
+function TaskRow({ task, courses, onToggle, onRename, onDeadlineChange, onDelete, onPriorityChange, onCourseChange }: {
   task: MonthlyTask
+  courses: StudyCourse[]
   onToggle: () => void
   onDeadlineChange: (deadline: string | null) => Promise<void>
   onRename: (title: string) => void
   onDelete: () => void
+  onPriorityChange: (priority: PriorityKey | null) => void
+  onCourseChange: (courseId: string) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(task.title)
@@ -62,6 +65,10 @@ function TaskRow({ task, onToggle, onRename, onDeadlineChange, onDelete }: {
           {task.title}
         </span>
       )}
+      <TaskPriorityField value={task.priority} onChange={onPriorityChange} />
+      {task.category === 'study' && task.study_task_id && (
+        <StudyCourseSelect value={task.course?.id ?? ''} courses={courses} onChange={onCourseChange} label={`Course for ${task.title}`} />
+      )}
 
       <div style={{ width: '100%', paddingLeft: 21, order: 1 }}><DeadlineField value={task.deadline} onChange={onDeadlineChange} /></div>
       <button
@@ -73,24 +80,33 @@ function TaskRow({ task, onToggle, onRename, onDeadlineChange, onDelete }: {
   )
 }
 
-function CategoryColumn({ category, tasks, monthStart, onRefresh }: {
+function CategoryColumn({ category, tasks, monthStart, courses, onRefresh }: {
   category: typeof CATEGORIES[number]
   tasks: MonthlyTask[]
   monthStart: string
+  courses: StudyCourse[]
   onRefresh: () => void
 }) {
   const [adding, setAdding] = useState(false)
   const [input, setInput] = useState('')
   const [deadline, setDeadline] = useState<string | null>(null)
+  const [priority, setPriority] = useState<PriorityKey | null>(null)
+  const [courseId, setCourseId] = useState('')
   const [addError, setAddError] = useState('')
 
   async function handleAdd() {
     const t = input.trim()
     if (!t) { setAdding(false); return }
-    const { error } = await addMonthlyTask(monthStart, t, category.key, deadline)
+    const { data, error } = await addMonthlyTask(monthStart, t, category.key, deadline, priority)
     if (error) { setAddError('Could not add task. Please try again.'); return }
+    if (category.key === 'study' && data?.study_task_id && courseId) {
+      const { error: courseError } = await updateStudyTask(data.study_task_id, { course_id: courseId })
+      if (courseError) { setAddError('Task added, but its course tag could not be saved.'); return }
+    }
     setAddError('')
     setDeadline(null)
+    setPriority(null)
+    setCourseId('')
     onRefresh()
     setInput('')
     setAdding(false)
@@ -111,6 +127,7 @@ function CategoryColumn({ category, tasks, monthStart, onRefresh }: {
           <TaskRow
             key={task.id}
             task={task}
+            courses={courses}
             onToggle={async () => { await updateMonthlyTask(task.id, { completed: !task.completed }); onRefresh() }}
             onDeadlineChange={async deadline => {
               const { error } = await updateMonthlyTask(task.id, { deadline })
@@ -119,6 +136,12 @@ function CategoryColumn({ category, tasks, monthStart, onRefresh }: {
             }}
             onRename={async title => { await updateMonthlyTask(task.id, { title }); onRefresh() }}
             onDelete={async () => { await deleteMonthlyTask(task.id); onRefresh() }}
+            onPriorityChange={async priority => { await updateMonthlyTask(task.id, { priority }); onRefresh() }}
+            onCourseChange={async course_id => {
+              if (!task.study_task_id) return
+              await updateStudyTask(task.study_task_id, { course_id: course_id || null })
+              onRefresh()
+            }}
           />
         ))}
       </div>
@@ -134,10 +157,12 @@ function CategoryColumn({ category, tasks, monthStart, onRefresh }: {
             style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 5, padding: '5px 8px', color: 'var(--text)', fontSize: 12, outline: 'none' }}
           />
           <DeadlineField value={deadline} onChange={setDeadline} />
+          <TaskPriorityField value={priority} onChange={setPriority} />
+          {category.key === 'study' && <StudyCourseSelect value={courseId} courses={courses} onChange={setCourseId} />}
           {addError && <div role="alert">{addError}</div>}
           <div style={{ display: 'flex', gap: 4 }}>
             <button onClick={handleAdd} style={{ flex: 1, background: category.color, border: 'none', borderRadius: 5, color: '#fff', padding: '4px', fontSize: 11, cursor: 'pointer', opacity: 0.9 }}>Add</button>
-            <button onClick={() => { setAdding(false); setInput(''); setDeadline(null); setAddError('') }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text-dim)', padding: '4px 8px', fontSize: 11, cursor: 'pointer' }}>✕</button>
+            <button onClick={() => { setAdding(false); setInput(''); setDeadline(null); setPriority(null); setCourseId(''); setAddError('') }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text-dim)', padding: '4px 8px', fontSize: 11, cursor: 'pointer' }}>✕</button>
           </div>
         </div>
       ) : (
@@ -156,12 +181,14 @@ function CategoryColumn({ category, tasks, monthStart, onRefresh }: {
 
 export default function MonthlyTasks({ monthStart, onTasksChange, revision = 0 }: { monthStart: string; onTasksChange?: () => void; revision?: number }) {
   const [tasks, setTasks] = useState<MonthlyTask[]>([])
+  const [courses, setCourses] = useState<StudyCourse[]>([])
 
   function refresh() {
     getMonthlyTasks(monthStart).then(setTasks)
     onTasksChange?.()
   }
   useEffect(() => { getMonthlyTasks(monthStart).then(setTasks) }, [monthStart, revision])
+  useEffect(() => { getStudyCourses().then(setCourses).catch(error => console.error('[getStudyCourses]', error)) }, [])
 
   const total = tasks.length
   const done = tasks.filter(t => t.completed).length
@@ -179,6 +206,7 @@ export default function MonthlyTasks({ monthStart, onTasksChange, revision = 0 }
             category={cat}
             tasks={tasks.filter(t => t.category === cat.key)}
             monthStart={monthStart}
+            courses={courses}
             onRefresh={refresh}
           />
         ))}

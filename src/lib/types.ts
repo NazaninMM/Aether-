@@ -18,6 +18,8 @@ export interface Task {
   actual_time: string | null
   priority: 'low' | 'medium' | 'high' | 'urgent' | null
   category: 'work' | 'study' | 'health' | 'personal' | 'home' | null
+  study_task_id: string | null
+  course: StudyCourse | null
 }
 
 export interface Event {
@@ -86,8 +88,11 @@ export interface WeeklyTask {
   title: string
   category: 'work' | 'study' | 'health' | 'personal' | 'home'
   completed: boolean
+  priority: 'low' | 'medium' | 'high' | 'urgent' | null
   sort_order: number
   created_at: string
+  study_task_id: string | null
+  course: StudyCourse | null
 }
 
 export interface WeeklyGoalItem {
@@ -122,16 +127,42 @@ export interface MonthlyTask {
   title: string
   category: 'work' | 'study' | 'health' | 'personal' | 'home'
   completed: boolean
+  priority: 'low' | 'medium' | 'high' | 'urgent' | null
+  sort_order: number
+  created_at: string
+  study_task_id: string | null
+  course: StudyCourse | null
+}
+
+export interface StudyCourse {
+  id: string
+  name: string
+  color: string
+  sort_order: number
+  created_at: string
+}
+
+export interface StudyTask {
+  id: string
+  title: string
+  deadline: string | null
+  priority: 'low' | 'medium' | 'high' | 'urgent' | null
+  course_id: string | null
+  course: StudyCourse | null
+  completed: boolean
   sort_order: number
   created_at: string
 }
 
 export interface MonthOverviewTask {
   id: string
+  study_task_id: string | null
   source: 'daily' | 'weekly' | 'monthly'
   scheduled_date: string
   title: string
   completed: boolean
   category: Task['category']
   deadline: string | null
+  priority: Task['priority']
+  course: StudyCourse | null
 }
