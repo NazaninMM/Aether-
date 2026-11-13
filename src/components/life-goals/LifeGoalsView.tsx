@@ -1,6 +1,28 @@
+'use client'
+
+import { useRef } from 'react'
+import type { MouseEvent } from 'react'
+import Link from 'next/link'
+import { usePlanetJourney } from './PlanetJourney'
+import PlanetVisual from './PlanetVisual'
 import styles from './LifeGoalsView.module.css'
 
 export default function LifeGoalsView() {
+  const planetRef = useRef<HTMLSpanElement>(null)
+  const enterStudy = usePlanetJourney()
+
+  function handleStudyClick(event: MouseEvent<HTMLAnchorElement>) {
+    if (
+      event.defaultPrevented || event.button !== 0 || event.metaKey ||
+      event.ctrlKey || event.shiftKey || event.altKey ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+      !planetRef.current
+    ) return
+
+    event.preventDefault()
+    enterStudy(planetRef.current.getBoundingClientRect())
+  }
+
   return (
     <section className={styles.page} aria-labelledby="life-goals-title">
       <header className={styles.header}>
@@ -30,15 +52,14 @@ export default function LifeGoalsView() {
         <span className={`${styles.star} ${styles.starFour}`} aria-hidden="true" />
         <span className={`${styles.star} ${styles.starFive}`} aria-hidden="true" />
 
-        <div className={styles.planet} aria-hidden="true">
-          <div className={styles.planetRing} />
-          <div className={styles.planetBody}>
-            <span className={styles.planetCraterOne} />
-            <span className={styles.planetCraterTwo} />
-            <span className={styles.planetCraterThree} />
-          </div>
-          <span className={styles.moon} />
-        </div>
+        <Link
+          href="/life-goals/study"
+          className={styles.planet}
+          aria-label="Enter the Study planet"
+          onClick={handleStudyClick}
+        >
+          <PlanetVisual bodyRef={planetRef} />
+        </Link>
 
         <article className={styles.holder} aria-labelledby="study-title">
           <div className={styles.holderTopline}>
@@ -49,13 +70,21 @@ export default function LifeGoalsView() {
             <span className={styles.holderSymbol} aria-hidden="true">✦</span>
           </div>
           <h2 className={styles.holderTitle} id="study-title">Study</h2>
-          <p className={styles.holderDescription}>
+          <p className={styles.holderDescription} id="study-description">
             A world for curiosity, learning, and everything you hope to discover.
           </p>
           <div className={styles.holderFooter}>
             <span className={styles.footerOrbit} aria-hidden="true" />
-            THE STUDY SECTOR
+            ENTER THE STUDY SECTOR
+            <span className={styles.entryArrow} aria-hidden="true">↗</span>
           </div>
+          <Link
+            href="/life-goals/study"
+            className={styles.holderLink}
+            aria-labelledby="study-title"
+            aria-describedby="study-description"
+            onClick={handleStudyClick}
+          />
         </article>
 
         <div className={styles.mapCaption} aria-hidden="true">

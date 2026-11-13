@@ -585,3 +585,204 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* The map and flight share the same planet so departure stays continuous. */
+.planetVisual {
+  position: relative;
+  display: block;
+  width: 1px;
+  height: 1px;
+}
+
+.planet {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.planet::after {
+  position: absolute;
+  inset: -110px;
+  border-radius: 50%;
+  content: '';
+}
+
+.planet:focus-visible {
+  outline: none;
+}
+
+.planet:focus-visible::after {
+  outline: 2px solid var(--gold);
+  outline-offset: 8px;
+}
+
+.planet .planetVisual {
+  transition: filter 240ms ease;
+}
+
+.planet:hover .planetVisual,
+.planet:focus-visible .planetVisual {
+  filter: brightness(1.16);
+}
+
+.holder {
+  transition: transform 240ms ease, border-color 240ms ease, box-shadow 240ms ease;
+}
+
+.holder:hover,
+.holder:focus-within {
+  transform: translateY(-4px);
+  border-color: rgba(184, 155, 221, 0.7);
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.25), 0 0 44px rgba(155, 96, 232, 0.16);
+}
+
+.holderLink {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.holderLink:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 5px;
+}
+
+.entryArrow {
+  margin-left: auto;
+  color: #b89bdd;
+  font-size: 17px;
+  line-height: 1;
+  transition: transform 240ms ease;
+}
+
+.holder:hover .entryArrow,
+.holder:focus-within .entryArrow {
+  transform: translate(2px, -2px);
+}
+
+.studyWorld {
+  min-height: calc(100svh - 80px);
+  outline: none;
+}
+
+.journey {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  overflow: hidden;
+  isolation: isolate;
+  outline: none;
+  cursor: progress;
+}
+
+.journeyBackdrop,
+.journeyStars,
+.journeyAtmosphere,
+.journeyVeil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.journeyBackdrop {
+  background: var(--bg);
+  animation: flight-backdrop 1200ms ease both;
+}
+
+.journeyPlanet {
+  position: absolute;
+  top: var(--origin-y);
+  left: var(--origin-x);
+  width: 1px;
+  height: 1px;
+  will-change: transform;
+  animation: planet-approach 1200ms cubic-bezier(0.55, 0.05, 0.7, 0.35) both;
+}
+
+.journeyStars {
+  animation: flight-stars 1200ms ease both;
+}
+
+.journeyStars span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(40px, 12vw, 180px);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(207, 182, 245, 0.65), transparent);
+  transform-origin: left center;
+  transform: rotate(var(--ray-angle)) translateX(var(--ray-distance)) scaleX(0.1);
+  animation: flight-ray 900ms var(--ray-delay) cubic-bezier(0.4, 0, 0.8, 0.4) both;
+}
+
+.journeyAtmosphere {
+  background: radial-gradient(ellipse at center, rgba(215, 190, 251, 0.75), rgba(138, 88, 198, 0.4) 38%, transparent 74%);
+  mix-blend-mode: screen;
+  animation: flight-atmosphere 1200ms ease both;
+}
+
+.journeyVeil {
+  background-color: var(--bg);
+  background-image: radial-gradient(circle, var(--bg-dot) 1px, transparent 1px);
+  background-size: 24px 24px;
+  animation: flight-landing 1200ms ease both;
+}
+
+.journeyReveal {
+  animation: flight-reveal 320ms ease-out both;
+}
+
+@keyframes planet-approach {
+  0% {
+    transform: translate(0, 0) scale(var(--initial-scale));
+  }
+  38% {
+    transform: translate(calc(50vw - var(--origin-x)), calc(50dvh - var(--origin-y))) scale(1.5);
+  }
+  100% {
+    transform: translate(calc(50vw - var(--origin-x)), calc(50dvh - var(--origin-y))) scale(var(--final-scale));
+  }
+}
+
+@keyframes flight-backdrop {
+  0% { opacity: 0; }
+  35%, 100% { opacity: 1; }
+}
+
+@keyframes flight-stars {
+  0%, 10% { opacity: 0; }
+  30%, 65% { opacity: 1; }
+  95%, 100% { opacity: 0; }
+}
+
+@keyframes flight-ray {
+  from { transform: rotate(var(--ray-angle)) translateX(var(--ray-distance)) scaleX(0.1); }
+  to { transform: rotate(var(--ray-angle)) translateX(90vmax) scaleX(2.4); }
+}
+
+@keyframes flight-atmosphere {
+  0%, 38% { opacity: 0; transform: scale(0.4); }
+  72% { opacity: 0.85; }
+  100% { opacity: 0; transform: scale(1.6); }
+}
+
+@keyframes flight-landing {
+  0%, 72% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes flight-reveal {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@media (max-width: 700px) {
+  .studyWorld { min-height: calc(100svh - 110px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journey,
+  .journey * {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+  }
+}
