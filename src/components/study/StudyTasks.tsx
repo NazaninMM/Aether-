@@ -4,7 +4,7 @@ import {
   addStudyCourse, addStudyTask, deleteStudyCourse, deleteStudyTask,
   getStudyCourses, getStudyTasks, updateStudyCourse, updateStudyTask,
 } from '@/lib/db'
-import { PRIORITY_COLOR, type PriorityKey } from '@/lib/constants'
+import { PRIORITY_COLOR, STUDY_COURSE_PALETTE, type PriorityKey } from '@/lib/constants'
 import type { StudyCourse, StudyTask } from '@/lib/types'
 import StudyCourseSelect from './StudyCourseSelect'
 import styles from './StudyTasks.module.css'
@@ -31,6 +31,7 @@ function sortTasks(tasks: StudyTask[]) {
 }
 
 export default function StudyTasks() {
+  const [activeView, setActiveView] = useState<'tasks' | 'done'>('tasks')
   const [tasks, setTasks] = useState<StudyTask[]>([])
   const [courses, setCourses] = useState<StudyCourse[]>([])
   const [title, setTitle] = useState('')
@@ -71,6 +72,8 @@ export default function StudyTasks() {
   }, [])
 
   const sortedTasks = useMemo(() => sortTasks(tasks), [tasks])
+  const doneTasks = sortedTasks.filter(task => task.completed || isArchived(task))
+  const activeTasks = sortedTasks.filter(task => !task.completed && !isArchived(task))
 
   async function addTask() {
     const trimmed = title.trim()
@@ -119,8 +122,6 @@ export default function StudyTasks() {
     await refresh()
   }
 
-  const completed = tasks.filter(task => task.completed).length
-
   return (
     <main id="study-world" className={styles.page} aria-label="Study" tabIndex={-1}>
       <header className={styles.header}>
@@ -129,12 +130,15 @@ export default function StudyTasks() {
           <h1 className={styles.title}>Study tasks</h1>
           <p className={styles.intro}>One shared list for coursework, quizzes, and everything you are learning.</p>
         </div>
-        <div className={styles.count}><strong>{completed}/{tasks.length}</strong> complete</div>
+        <div className={styles.count}><strong>{activeTasks.length}</strong> active · {doneTasks.length} done</div>
       </header>
 
       <section className={styles.panel} aria-label="Study task list">
         <div className={styles.toolbar}>
-          <div className={styles.toolbarTitle}>To-do list</div>
+          <div className={styles.viewTabs} role="group" aria-label="Study task views">
+            <button type="button" aria-pressed={activeView === 'tasks'} className={`${styles.viewTab} ${activeView === 'tasks' ? styles.viewTabActive : ''}`} onClick={() => setActiveView('tasks')}>Tasks ({activeTasks.length})</button>
+            <button type="button" aria-pressed={activeView === 'done'} className={`${styles.viewTab} ${activeView === 'done' ? styles.viewTabActive : ''}`} onClick={() => setActiveView('done')}>Done ({doneTasks.length})</button>
+          </div>
           <button type="button" className={styles.secondaryButton} onClick={() => setManagingCourses(value => !value)}>
             {managingCourses ? 'Close courses' : 'Manage courses'}
           </button>
@@ -148,7 +152,7 @@ export default function StudyTasks() {
                   <tr><th>Done</th><th className={styles.taskName}>Task</th><th>Due date</th><th>Priority</th><th>Course</th><th aria-label="Actions" /></tr>
                 </thead>
                 <tbody>
-                  {sortedTasks.map(task => (
+                  {(activeView === 'tasks' ? activeTasks : doneTasks).map(task => (
                     <StudyTaskRow
                       key={task.id}
                       task={task}
@@ -160,29 +164,37 @@ export default function StudyTasks() {
                 </tbody>
               </table>
             </div>
-            {sortedTasks.length === 0 && <div className={styles.empty}>No study tasks yet. Add one below to get started.</div>}
-            <div className={styles.addForm}>
-              <input
-                className={styles.textInput}
-                value={title}
-                onChange={event => setTitle(event.target.value)}
-                onKeyDown={event => { if (event.key === 'Enter') void addTask() }}
-                placeholder="Add a study task..."
-                aria-label="New study task title"
-              />
-              <input className={styles.dateInput} type="date" value={deadline} onChange={event => setDeadline(event.target.value)} aria-label="Due date" />
-              <select
-                className={styles.select}
-                value={priority}
-                style={{ color: priority ? PRIORITY_COLOR[priority] : 'var(--text-dim)' }}
-                onChange={event => setPriority(event.target.value as PriorityKey | '')}
-                aria-label="Priority"
-              >
-                {PRIORITIES.map(item => <option key={item || 'none'} value={item}>{item ? item[0].toUpperCase() + item.slice(1) : 'No priority'}</option>)}
-              </select>
-              <StudyCourseSelect value={courseId} courses={courses} onChange={setCourseId} label="Course" />
-              <button type="button" className={styles.button} onClick={() => void addTask()}>Add task</button>
-            </div>
+            {(activeView === 'tasks' ? activeTasks : doneTasks).length === 0 && (
+              <div className={styles.empty}>
+                {activeView === 'tasks' ? 'No active study tasks. Add one below to get started.' : 'No completed or archived tasks yet.'}
+              </div>
+            )}
+            {activeView === 'tasks' ? (
+              <div className={styles.addForm}>
+                <input
+                  className={styles.textInput}
+                  value={title}
+                  onChange={event => setTitle(event.target.value)}
+                  onKeyDown={event => { if (event.key === 'Enter') void addTask() }}
+                  placeholder="Add a study task..."
+                  aria-label="New study task title"
+                />
+                <input className={styles.dateInput} type="date" value={deadline} onChange={event => setDeadline(event.target.value)} aria-label="Due date" />
+                <select
+                  className={styles.select}
+                  value={priority}
+                  style={{ color: priority ? PRIORITY_COLOR[priority] : 'var(--text-dim)' }}
+                  onChange={event => setPriority(event.target.value as PriorityKey | '')}
+                  aria-label="Priority"
+                >
+                  {PRIORITIES.map(item => <option key={item || 'none'} value={item}>{item ? item[0].toUpperCase() + item.slice(1) : 'No priority'}</option>)}
+                </select>
+                <StudyCourseSelect value={courseId} courses={courses} onChange={setCourseId} label="Course" />
+                <button type="button" className={styles.button} onClick={() => void addTask()}>Add task</button>
+              </div>
+            ) : (
+              <p className={styles.empty}>Completed tasks and undated tasks added over 30 days ago are kept here.</p>
+            )}
           </>
         )}
       </section>
@@ -192,7 +204,7 @@ export default function StudyTasks() {
           <div className={styles.toolbarTitle}>Course tags</div>
           <div className={styles.courseForm} style={{ marginTop: 12 }}>
             <input className={styles.textInput} value={newCourseName} onChange={event => setNewCourseName(event.target.value)} placeholder="Course name" aria-label="New course name" />
-            <input className={styles.colorInput} type="color" value={newCourseColor} onChange={event => setNewCourseColor(event.target.value)} aria-label="New course color" />
+            <ColorPalette value={newCourseColor} onChange={setNewCourseColor} />
             <button type="button" className={styles.button} onClick={() => void addCourse()}>Add course</button>
           </div>
           <div className={styles.courseList}>
@@ -202,6 +214,29 @@ export default function StudyTasks() {
         </section>
       )}
     </main>
+  )
+}
+
+function isArchived(task: StudyTask) {
+  const ageInDays = (Date.now() - new Date(task.created_at).getTime()) / (24 * 60 * 60 * 1000)
+  return !task.deadline && ageInDays >= 30
+}
+
+function ColorPalette({ value, onChange }: { value: string; onChange: (color: string) => void }) {
+  return (
+    <div className={styles.colorOptions} role="group" aria-label="Course color">
+      {STUDY_COURSE_PALETTE.map(color => (
+        <button
+          key={color}
+          type="button"
+          className={`${styles.colorSwatch} ${value.toLowerCase() === color.toLowerCase() ? styles.colorSwatchSelected : ''}`}
+          style={{ backgroundColor: color }}
+          aria-label={`Choose ${color}`}
+          aria-pressed={value.toLowerCase() === color.toLowerCase()}
+          onClick={() => onChange(color)}
+        />
+      ))}
+    </div>
   )
 }
 
@@ -262,7 +297,7 @@ function CourseEditor({ course, onSave, onDelete }: {
   const [color, setColor] = useState(course.color)
   return (
     <div className={styles.courseRow}>
-      <input className={styles.colorInput} type="color" value={color} onChange={event => setColor(event.target.value)} aria-label={`Color for ${course.name}`} />
+      <ColorPalette value={color} onChange={setColor} />
       <input className={styles.textInput} value={name} onChange={event => setName(event.target.value)} aria-label={`Name for ${course.name}`} />
       <button type="button" className={styles.secondaryButton} onClick={() => onSave(course, name, color)}>Save</button>
       <button type="button" className={styles.secondaryButton} onClick={() => onDelete(course)}>Delete</button>

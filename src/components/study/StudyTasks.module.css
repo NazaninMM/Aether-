@@ -76,6 +76,34 @@
   border-bottom: 1px solid var(--border);
 }
 
+.viewTabs {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.viewTab {
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 7px 10px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+
+.viewTab:hover {
+  color: var(--text);
+}
+
+.viewTabActive {
+  border-color: rgba(155, 96, 232, 0.4);
+  background: rgba(155, 96, 232, 0.14);
+  color: #c7a8ef;
+}
+
 .toolbarTitle {
   color: var(--text-mid);
   font-size: 10px;
@@ -272,14 +300,25 @@
   margin-top: 12px;
 }
 
-.colorInput {
-  width: 34px;
-  height: 31px;
-  padding: 2px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface-2);
+.colorOptions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.colorSwatch {
+  width: 21px;
+  height: 21px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 50%;
   cursor: pointer;
+}
+
+.colorSwatchSelected {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
 
 .tag {

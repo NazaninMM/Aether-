@@ -35,6 +35,19 @@ export const ROUTINE_PALETTE = [
   '#e8c040', // yellow
 ]
 
+export const STUDY_COURSE_PALETTE = [
+  '#9b60e8',
+  '#5b8ce8',
+  '#3db870',
+  '#e8833a',
+  '#e85079',
+  '#e8c040',
+  '#26a69a',
+  '#8d6e63',
+  '#78909c',
+  '#c14ba1',
+]
+
 export const CATEGORIES: { key: CategoryKey; label: string; color: string }[] = [
   { key: 'work',     label: 'Work',     color: CATEGORY_COLOR.work },
   { key: 'study',    label: 'Study',    color: CATEGORY_COLOR.study },
