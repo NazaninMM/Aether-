@@ -135,7 +135,11 @@ function CategoryColumn({ category, tasks, monthStart, courses, onRefresh }: {
               onRefresh()
             }}
             onRename={async title => { await updateMonthlyTask(task.id, { title }); onRefresh() }}
-            onDelete={async () => { await deleteMonthlyTask(task.id); onRefresh() }}
+            onDelete={async () => {
+              const { error } = await deleteMonthlyTask(task.id)
+              if (error) { console.error('[deleteMonthlyTask]', error); return }
+              onRefresh()
+            }}
             onPriorityChange={async priority => { await updateMonthlyTask(task.id, { priority }); onRefresh() }}
             onCourseChange={async course_id => {
               if (!task.study_task_id) return

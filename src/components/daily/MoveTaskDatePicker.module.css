@@ -1,0 +1,130 @@
+.movePicker {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.trigger {
+  border: 0;
+  padding: 0 2px;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  opacity: 0.45;
+  transition: color 150ms ease, opacity 150ms ease;
+}
+
+.trigger:hover,
+.trigger[aria-expanded='true'] {
+  color: var(--gold);
+  opacity: 1;
+}
+
+.calendar {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  right: -12px;
+  width: 246px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+}
+
+.calendarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.navButton {
+  width: 27px;
+  height: 27px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text-mid);
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  justify-items: center;
+  gap: 3px;
+}
+
+.weekday {
+  padding: 4px 0;
+  color: var(--text-dim);
+  font-size: 9px;
+  text-align: center;
+}
+
+.day {
+  width: 27px;
+  height: 27px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-mid);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.day:hover {
+  border-color: var(--gold-dim);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.outsideMonth {
+  color: var(--text-dim);
+  opacity: 0.55;
+}
+
+.selectedDay {
+  background: rgba(201, 168, 76, 0.2);
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.calendarFooter {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.todayButton,
+.cancelButton {
+  border: 0;
+  background: none;
+  color: var(--text-mid);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.todayButton:hover,
+.cancelButton:hover {
+  color: var(--gold);
+}
+
+.error {
+  margin: 7px 0 0;
+  color: #e87078;
+  font-size: 10px;
+}

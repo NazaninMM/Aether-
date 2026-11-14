@@ -81,7 +81,13 @@ export async function addTask(date: string, title: string, category?: Task['cate
 export async function updateTask(id: string, fields: Partial<Omit<Task, 'id' | 'date' | 'created_at'>>) {
   return supabase.from('tasks').update(fields).eq('id', id)
 }
+export async function moveTaskToDate(id: string, date: string) {
+  return supabase.rpc('move_daily_task_to_date', { p_task_id: id, p_date: date })
+}
 export async function deleteTask(id: string) {
+  const { data, error } = await supabase.from('tasks').select('study_task_id').eq('id', id).maybeSingle()
+  if (error) return { data: null, error }
+  if (data?.study_task_id) return deleteStudyTask(data.study_task_id)
   return supabase.from('tasks').delete().eq('id', id)
 }
 
@@ -216,6 +222,9 @@ export async function updateWeeklyTask(id: string, fields: Partial<Omit<WeeklyTa
   return supabase.from('weekly_tasks').update(fields).eq('id', id)
 }
 export async function deleteWeeklyTask(id: string) {
+  const { data, error } = await supabase.from('weekly_tasks').select('study_task_id').eq('id', id).maybeSingle()
+  if (error) return { data: null, error }
+  if (data?.study_task_id) return deleteStudyTask(data.study_task_id)
   return supabase.from('weekly_tasks').delete().eq('id', id)
 }
 
@@ -243,6 +252,9 @@ export async function updateMonthlyTask(id: string, fields: Partial<Omit<Monthly
   return supabase.from('monthly_tasks').update(fields).eq('id', id)
 }
 export async function deleteMonthlyTask(id: string) {
+  const { data, error } = await supabase.from('monthly_tasks').select('study_task_id').eq('id', id).maybeSingle()
+  if (error) return { data: null, error }
+  if (data?.study_task_id) return deleteStudyTask(data.study_task_id)
   return supabase.from('monthly_tasks').delete().eq('id', id)
 }
 

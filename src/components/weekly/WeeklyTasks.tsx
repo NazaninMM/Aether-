@@ -151,7 +151,11 @@ function CategoryColumn({ category, tasks, weekStart, courses, onRefresh }: {
               onRefresh()
             }}
             onRename={async title => { await updateWeeklyTask(task.id, { title }); onRefresh() }}
-            onDelete={async () => { await deleteWeeklyTask(task.id); onRefresh() }}
+            onDelete={async () => {
+              const { error } = await deleteWeeklyTask(task.id)
+              if (error) { console.error('[deleteWeeklyTask]', error); return }
+              onRefresh()
+            }}
             onCopy={async () => {
               const { data, error } = await addWeeklyTask(addDays(weekStart, 7), task.title, task.category, task.deadline, task.priority)
               if (!error && data?.study_task_id && task.course) await updateStudyTask(data.study_task_id, { course_id: task.course.id })

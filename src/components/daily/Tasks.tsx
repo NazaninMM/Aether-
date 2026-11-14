@@ -1,11 +1,11 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { getTasks, addTask, updateTask, deleteTask, getStudyCourses, updateStudyTask } from '@/lib/db'
+import { getTasks, addTask, updateTask, deleteTask, getStudyCourses, updateStudyTask, moveTaskToDate } from '@/lib/db'
 import DeadlineField from '@/components/DeadlineField'
 import type { StudyCourse, Task } from '@/lib/types'
 import { PRIORITY_CYCLE, PRIORITY_COLOR, CATEGORY_KEYS, CATEGORY_COLOR } from '@/lib/constants'
-import { addDays } from '@/lib/utils'
 import StudyCourseSelect from '@/components/study/StudyCourseSelect'
+import MoveTaskDatePicker from './MoveTaskDatePicker'
 
 type Priority = Task['priority']
 type Category = Task['category']
@@ -91,21 +91,14 @@ function TextField({ value, placeholder, icon, onChange }: {
   )
 }
 
-function TaskRow({ task, courses, onChange, onDelete, onCopy, onRefresh }: {
-  task: Task; courses: StudyCourse[]; onChange: (t: Task) => void; onDelete: () => void; onCopy: () => void; onRefresh: () => void
+function TaskRow({ task, courses, onChange, onDelete, onMove, onRefresh }: {
+  task: Task; courses: StudyCourse[]; onChange: (t: Task) => void; onDelete: () => void; onMove: (date: string) => Promise<void>; onRefresh: () => void
 }) {
   const [editingTitle, setEditingTitle] = useState(false)
   const [title, setTitle] = useState(task.title)
-  const [copied, setCopied] = useState(false)
   const [courseError, setCourseError] = useState('')
   const titleRef = useRef<HTMLInputElement>(null)
   useEffect(() => { if (editingTitle) titleRef.current?.focus() }, [editingTitle])
-
-  function handleCopy() {
-    onCopy()
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1200)
-  }
 
   function saveTitle() {
     setEditingTitle(false)
@@ -237,19 +230,7 @@ function TaskRow({ task, courses, onChange, onDelete, onCopy, onRefresh }: {
           {pri ?? '—'}
         </button>
 
-        <button
-          onClick={handleCopy}
-          title="Copy to tomorrow"
-          style={{
-            background: 'none', border: 'none', color: copied ? 'var(--green)' : 'var(--text-dim)',
-            cursor: 'pointer', fontSize: 13, padding: '0 2px', flexShrink: 0,
-            opacity: copied ? 1 : 0.35, transition: 'opacity 0.15s, color 0.15s',
-          }}
-          onMouseEnter={e => { if (!copied) e.currentTarget.style.opacity = '1' }}
-          onMouseLeave={e => { if (!copied) e.currentTarget.style.opacity = '0.35' }}
-        >
-          {copied ? '✓' : '→'}
-        </button>
+        <MoveTaskDatePicker currentDate={task.date} taskTitle={task.title} onChoose={onMove} />
 
         <button
           onClick={onDelete}
@@ -329,17 +310,17 @@ export default function Tasks({ date, onTasksChange }: { date: string; onTasksCh
   }
 
   async function handleDelete(id: string) {
-    await deleteTask(id)
+    const { error } = await deleteTask(id)
+    if (error) { console.error('[deleteTask]', error); return }
     setAndNotify(tasks.filter(t => t.id !== id))
   }
 
-  async function handleCopyToTomorrow(task: Task) {
-    const { data, error } = await addTask(addDays(date, 1), task.title, task.category ?? undefined, task.deadline, task.priority)
-    if (error) { console.error('[copyTaskToTomorrow]', error); return }
-    if (task.category === 'study' && task.course && data?.study_task_id) {
-      const { error: courseError } = await updateStudyTask(data.study_task_id, { course_id: task.course.id })
-      if (courseError) console.error('[copyTaskToTomorrow course]', courseError)
-    }
+  async function handleMoveTask(id: string, targetDate: string) {
+    if (targetDate === date) return
+    const { error } = await moveTaskToDate(id, targetDate)
+    if (error) throw error
+    setAndNotify(tasks.filter(task => task.id !== id))
+    getTasks(date).then(setAndNotify).catch(error => console.error('[moveTaskToDate refresh]', error))
   }
 
   const done = tasks.filter(t => t.completed).length
@@ -358,7 +339,7 @@ export default function Tasks({ date, onTasksChange }: { date: string; onTasksCh
           courses={courses}
           onChange={updated => setAndNotify(tasks.map(t => t.id === updated.id ? updated : t))}
           onDelete={() => handleDelete(task.id)}
-          onCopy={() => handleCopyToTomorrow(task)}
+          onMove={targetDate => handleMoveTask(task.id, targetDate)}
           onRefresh={() => getTasks(date).then(setAndNotify)}
         />
       ))}
