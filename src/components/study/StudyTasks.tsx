@@ -32,6 +32,7 @@ function sortTasks(tasks: StudyTask[]) {
 
 export default function StudyTasks() {
   const [activeView, setActiveView] = useState<'tasks' | 'done'>('tasks')
+  const [courseFilter, setCourseFilter] = useState('all')
   const [tasks, setTasks] = useState<StudyTask[]>([])
   const [courses, setCourses] = useState<StudyCourse[]>([])
   const [title, setTitle] = useState('')
@@ -72,8 +73,12 @@ export default function StudyTasks() {
   }, [])
 
   const sortedTasks = useMemo(() => sortTasks(tasks), [tasks])
-  const doneTasks = sortedTasks.filter(task => task.completed || isArchived(task))
-  const activeTasks = sortedTasks.filter(task => !task.completed && !isArchived(task))
+  const filteredTasks = sortedTasks.filter(task => (
+    courseFilter === 'all' || (courseFilter === 'none' ? task.course_id === null : task.course_id === courseFilter)
+  ))
+  const doneTasks = filteredTasks.filter(task => task.completed || isArchived(task))
+  const activeTasks = filteredTasks.filter(task => !task.completed && !isArchived(task))
+  const visibleTasks = activeView === 'tasks' ? activeTasks : doneTasks
 
   async function addTask() {
     const trimmed = title.trim()
@@ -113,6 +118,7 @@ export default function StudyTasks() {
   async function removeCourse(course: StudyCourse) {
     const { error: saveError } = await deleteStudyCourse(course.id)
     if (saveError) { setError('Could not delete this course. Please try again.'); return }
+    if (courseFilter === course.id) setCourseFilter('all')
     await refresh()
   }
 
@@ -139,6 +145,14 @@ export default function StudyTasks() {
             <button type="button" aria-pressed={activeView === 'tasks'} className={`${styles.viewTab} ${activeView === 'tasks' ? styles.viewTabActive : ''}`} onClick={() => setActiveView('tasks')}>Tasks ({activeTasks.length})</button>
             <button type="button" aria-pressed={activeView === 'done'} className={`${styles.viewTab} ${activeView === 'done' ? styles.viewTabActive : ''}`} onClick={() => setActiveView('done')}>Done ({doneTasks.length})</button>
           </div>
+          <label className={styles.courseFilter}>
+            <span>Filter by course</span>
+            <select className={styles.select} value={courseFilter} onChange={event => setCourseFilter(event.target.value)}>
+              <option value="all">All courses</option>
+              <option value="none">No course</option>
+              {courses.map(course => <option key={course.id} value={course.id}>{course.name}</option>)}
+            </select>
+          </label>
           <button type="button" className={styles.secondaryButton} onClick={() => setManagingCourses(value => !value)}>
             {managingCourses ? 'Close courses' : 'Manage courses'}
           </button>
@@ -152,7 +166,7 @@ export default function StudyTasks() {
                   <tr><th>Done</th><th className={styles.taskName}>Task</th><th>Due date</th><th>Priority</th><th>Course</th><th aria-label="Actions" /></tr>
                 </thead>
                 <tbody>
-                  {(activeView === 'tasks' ? activeTasks : doneTasks).map(task => (
+                  {visibleTasks.map(task => (
                     <StudyTaskRow
                       key={task.id}
                       task={task}
@@ -164,9 +178,14 @@ export default function StudyTasks() {
                 </tbody>
               </table>
             </div>
-            {(activeView === 'tasks' ? activeTasks : doneTasks).length === 0 && (
+            {visibleTasks.length === 0 && (
               <div className={styles.empty}>
-                {activeView === 'tasks' ? 'No active study tasks. Add one below to get started.' : 'No completed or archived tasks yet.'}
+                {courseFilter !== 'all'
+                  ? (activeView === 'tasks' ? 'No active study tasks match this course filter.' : 'No completed or archived tasks match this course filter.')
+                  : (activeView === 'tasks' ? 'No active study tasks. Add one below to get started.' : 'No completed or archived tasks yet.')}
+                {courseFilter !== 'all' && (
+                  <button type="button" className={styles.secondaryButton} onClick={() => setCourseFilter('all')}>Show all courses</button>
+                )}
               </div>
             )}
             {activeView === 'tasks' ? (

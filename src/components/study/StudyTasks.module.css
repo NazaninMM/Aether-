@@ -69,11 +69,31 @@
 
 .toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 15px 19px;
   border-bottom: 1px solid var(--border);
+}
+
+.courseFilter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.courseFilter .select {
+  max-width: 220px;
+}
+
+.empty .secondaryButton {
+  display: block;
+  margin: 12px auto 0;
 }
 
 .viewTabs {
@@ -372,6 +392,12 @@
 
   .toolbar {
     padding: 12px;
+  }
+
+  .courseFilter {
+    width: 100%;
+    margin-left: 0;
+    order: 1;
   }
 
   .addForm {
